@@ -2,7 +2,7 @@
   "tasks": {
     "check": "deno fmt --check && deno lint",
     "dev": "deno run --allow-net --allow-read --watch main.ts",
-    "build": "deno run --allow-net --allow-read --allow-write --allow-env build.ts",
+    "build": "deno run --allow-net --allow-read --allow-write --allow-env --allow-run build.ts",
     "serve": "deno run --allow-net --allow-read https://deno.land/std/http/file_server.ts ./public",
     "test": "deno test --allow-read"
   },
