@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Puyo Puyo Simulator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .game-container {
+            margin-top: 20px;
+            position: relative;
+        }
+        
+        canvas {
+            border: 2px solid #333;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .controls {
+            margin-top: 20px;
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+        }
+        
+        .controls h2 {
+            margin-top: 0;
+            font-size: 18px;
+        }
+        
+        .controls ul {
+            padding-left: 20px;
+        }
+        
+        .start-button {
+            margin-top: 15px;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .start-button:hover {
+            background-color: #45a049;
+        }
+        
+        /* Key configuration styles */
+        .key-config {
+            margin-top: 20px;
+            border-top: 1px solid #ddd;
+            padding-top: 15px;
+        }
+        
+        .key-config h3 {
+            margin-top: 0;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        
+        .key-config-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+        
+        .key-config-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .key-config-row label {
+            flex: 1;
+            font-weight: bold;
+        }
+        
+        .key-button {
+            background-color: #f0f0f0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 5px 10px;
+            min-width: 100px;
+            text-align: center;
+            cursor: pointer;
+            font-family: monospace;
+        }
+        
+        .key-button:hover {
+            background-color: #e0e0e0;
+        }
+        
+        .key-button.listening {
+            background-color: #ffeb3b;
+            border-color: #ffc107;
+        }
+        
+        .key-config-actions {
+            margin-top: 15px;
+            text-align: right;
+        }
+        
+        .config-button {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        
+        .config-button:hover {
+            background-color: #0b7dda;
+        }
+    </style>
+</head>
+<body>
+    <h1>Puyo Puyo Simulator</h1>
+    <p>A simple Puyo Puyo game simulator built with Deno and TypeScript</p>
+    
+    <div class="game-container">
+        <canvas id="game-canvas" width="500" height="600"></canvas>
+        <button id="start-button" class="start-button">Start Game</button>
+    </div>
+    
+    <div class="controls">
+        <h2>Controls:</h2>
+        <div id="current-controls">
+            <ul id="controls-list">
+                <li><strong>Left/Right Arrow:</strong> Move horizontally</li>
+                <li><strong>Down Arrow:</strong> Move down faster</li>
+                <li><strong>Up Arrow:</strong> Rotate clockwise</li>
+                <li><strong>Z Key:</strong> Rotate counter-clockwise</li>
+                <li><strong>Space:</strong> Hard drop</li>
+            </ul>
+        </div>
+        
+        <div class="key-config">
+            <h3>Customize Controls</h3>
+            <div class="key-config-grid">
+                <div class="key-config-row">
+                    <label for="key-move-left">Move Left:</label>
+                    <button id="key-move-left" class="key-button" data-action="moveLeft">a</button>
+                </div>
+                <div class="key-config-row">
+                    <label for="key-move-right">Move Right:</label>
+                    <button id="key-move-right" class="key-button" data-action="moveRight">d</button>
+                </div>
+                <div class="key-config-row">
+                    <label for="key-move-down">Move Down:</label>
+                    <button id="key-move-down" class="key-button" data-action="moveDown">s</button>
+                </div>
+                <div class="key-config-row">
+                    <label for="key-rotate-cw">Rotate Clockwise:</label>
+                    <button id="key-rotate-cw" class="key-button" data-action="rotateClockwise">j</button>
+                </div>
+                <div class="key-config-row">
+                    <label for="key-rotate-ccw">Rotate Counter-Clockwise:</label>
+                    <button id="key-rotate-ccw" class="key-button" data-action="rotateCounterClockwise">k</button>
+                </div>
+                <div class="key-config-row">
+                    <label for="key-hard-drop">Hard Drop:</label>
+                    <button id="key-hard-drop" class="key-button" data-action="hardDrop">Space</button>
+                </div>
+            </div>
+            <div class="key-config-actions">
+                <button id="reset-keys" class="config-button">Reset to Defaults</button>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module" src="main.js"></script>
+</body>
+</html>

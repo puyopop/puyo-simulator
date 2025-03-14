@@ -1,0 +1,17 @@
+{
+  "tasks": {
+    "check": "deno fmt --check && deno lint",
+    "dev": "deno run --allow-net --allow-read --watch main.ts",
+    "build": "deno run --allow-net --allow-read --allow-write --allow-env build.ts",
+    "serve": "deno run --allow-net --allow-read https://deno.land/std/http/file_server.ts ./public",
+    "test": "deno test --allow-read"
+  },
+  "compilerOptions": {
+    "lib": ["dom", "deno.ns", "deno.unstable"]
+  },
+  "imports": {
+    "std/": "https://deno.land/std@0.220.1/",
+    "@std/expect": "jsr:@std/expect@^0.218.2",
+    "@std/testing/bdd": "jsr:@std/testing@^0.218.2/bdd"
+  }
+}
