@@ -13,10 +13,19 @@ export enum PuyoColor {
 }
 
 /**
+ * Represents the state of a Puyo
+ */
+export enum PuyoState {
+  NORMAL = "normal",
+  MARKED_FOR_DELETION = "marked_for_deletion"
+}
+
+/**
  * Branded type for Puyo
  */
 export type Puyo = Branded<{
   readonly color: PuyoColor;
+  readonly state: PuyoState;
 }, "Puyo">;
 
 /**
@@ -28,11 +37,12 @@ export type PuyoError = {
 };
 
 /**
- * Creates a Puyo with the specified color
+ * Creates a Puyo with the specified color and state
  */
-export function createPuyo(color: PuyoColor): Puyo {
+export function createPuyo(color: PuyoColor, state: PuyoState = PuyoState.NORMAL): Puyo {
   return Object.freeze({
     color,
+    state,
     _brand: "Puyo" as const
   });
 }
@@ -42,6 +52,13 @@ export function createPuyo(color: PuyoColor): Puyo {
  */
 export function createEmptyPuyo(): Puyo {
   return createPuyo(PuyoColor.NONE);
+}
+
+/**
+ * Creates a Puyo marked for deletion
+ */
+export function markPuyoForDeletion(puyo: Puyo): Puyo {
+  return createPuyo(puyo.color, PuyoState.MARKED_FOR_DELETION);
 }
 
 /**

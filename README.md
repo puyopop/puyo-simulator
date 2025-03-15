@@ -62,7 +62,7 @@ This project is set up for automatic deployment to GitHub Pages using GitHub Act
 
 2. The GitHub Actions workflow will automatically build and deploy the project to GitHub Pages.
 
-3. Your game will be available at `https://yourusername.github.io/puyo-simulator/`
+3. Your game will be available at `https://puyopop.github.io/puyo-simulator/`
 
 ## Game Controls
 

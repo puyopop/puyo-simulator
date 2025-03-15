@@ -1,5 +1,5 @@
 import { Game, GameState } from "../domain/game.ts";
-import { PuyoColor, isEmpty } from "../domain/puyo.ts";
+import { PuyoColor, PuyoState, isEmpty } from "../domain/puyo.ts";
 import { BOARD_WIDTH, BOARD_HEIGHT, HIDDEN_ROWS, getPuyoAt, isEmptyAt } from "../domain/board.ts";
 import { GameRenderer } from "./gameRenderer.ts";
 import { getMainPosition, getSecondPosition } from "../domain/puyoPair.ts";
@@ -129,7 +129,8 @@ export class CanvasRenderer implements GameRenderer {
           this.drawPuyo(
             boardX + x * this.cellSize,
             boardY + (y - HIDDEN_ROWS) * this.cellSize,
-            puyo.color
+            puyo.color,
+            puyo.state
           );
         }
       }
@@ -153,13 +154,15 @@ export class CanvasRenderer implements GameRenderer {
     this.drawPuyo(
       mainPos.x * this.cellSize,
       Math.max(0, (mainPos.y - HIDDEN_ROWS)) * this.cellSize,
-      currentPair.mainPuyo.color
+      currentPair.mainPuyo.color,
+      currentPair.mainPuyo.state
     );
     
     this.drawPuyo(
       secondPos.x * this.cellSize,
       Math.max(0, (secondPos.y - HIDDEN_ROWS)) * this.cellSize,
-      currentPair.secondPuyo.color
+      currentPair.secondPuyo.color,
+      currentPair.secondPuyo.state
     );
   }
 
@@ -185,13 +188,15 @@ export class CanvasRenderer implements GameRenderer {
     this.drawPuyo(
       nextX,
       nextY + this.cellSize,
-      nextPair.mainPuyo.color
+      nextPair.mainPuyo.color,
+      nextPair.mainPuyo.state
     );
     
     this.drawPuyo(
       nextX + this.cellSize,
       nextY + this.cellSize,
-      nextPair.secondPuyo.color
+      nextPair.secondPuyo.color,
+      nextPair.secondPuyo.state
     );
   }
 
@@ -215,13 +220,32 @@ export class CanvasRenderer implements GameRenderer {
   /**
    * Draws a single Puyo
    */
-  private drawPuyo(x: number, y: number, color: PuyoColor): void {
+  private drawPuyo(x: number, y: number, color: PuyoColor, state: PuyoState = PuyoState.NORMAL): void {
     const radius = this.cellSize / 2 - 2;
     const centerX = x + this.cellSize / 2;
     const centerY = y + this.cellSize / 2;
     
     // Draw Puyo circle
-    this.ctx.fillStyle = this.colors[color];
+    if (state === PuyoState.MARKED_FOR_DELETION) {
+      // 消去予定のぷよは発光/点滅させる
+      // 時間に応じて明るさを変化させる
+      const time = performance.now() / 100; // 時間の経過に応じて変化
+      const brightness = 0.7 + 0.3 * Math.sin(time); // 0.7〜1.0の間で明るさを変化
+      
+      // 発光色を設定（元の色を明るくする）
+      const baseColor = this.colors[color];
+      this.ctx.fillStyle = this.getLightenedColor(baseColor, brightness);
+      
+      // 発光エフェクト（グロー）を追加
+      this.ctx.shadowColor = this.colors[color];
+      this.ctx.shadowBlur = 15;
+    } else {
+      // 通常のぷよ
+      this.ctx.fillStyle = this.colors[color];
+      this.ctx.shadowColor = "transparent";
+      this.ctx.shadowBlur = 0;
+    }
+    
     this.ctx.beginPath();
     this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
     this.ctx.fill();
@@ -238,5 +262,28 @@ export class CanvasRenderer implements GameRenderer {
     this.ctx.beginPath();
     this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
     this.ctx.stroke();
+    
+    // シャドウをリセット
+    this.ctx.shadowColor = "transparent";
+    this.ctx.shadowBlur = 0;
+  }
+  
+  /**
+   * 色を明るくする関数
+   */
+  private getLightenedColor(hexColor: string, factor: number): string {
+    // 16進数の色コードをRGB値に変換
+    const hex = hexColor.replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    
+    // 明るさを適用
+    const newR = Math.min(255, Math.floor(r * factor));
+    const newG = Math.min(255, Math.floor(g * factor));
+    const newB = Math.min(255, Math.floor(b * factor));
+    
+    // RGB値を16進数に戻す
+    return `rgb(${newR}, ${newG}, ${newB})`;
   }
 }

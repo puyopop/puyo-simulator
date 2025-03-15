@@ -1,5 +1,5 @@
 import { Board, BOARD_WIDTH, BOARD_HEIGHT, HIDDEN_ROWS, Position, createBoard, isEmptyAt, getPuyoAt, setPuyoAt, applyGravity, isOutOfBounds } from "./board.ts";
-import { Puyo, PuyoColor, createEmptyPuyo, isEmpty } from "./puyo.ts";
+import { Puyo, PuyoColor, PuyoState, createEmptyPuyo, isEmpty, markPuyoForDeletion } from "./puyo.ts";
 import { PuyoPair, createRandomPuyoPair, getMainPosition, getSecondPosition, moveLeft, moveRight, moveDown, rotateClockwise, rotateCounterClockwise, placeOnBoard } from "./puyoPair.ts";
 import { Result, ok, err, createPosition } from "./types.ts";
 
@@ -11,6 +11,7 @@ export enum GameState {
   PLAYING = "PLAYING",
   DROPPING = "DROPPING",
   CHECKING_CHAINS = "CHECKING_CHAINS",
+  FLASHING_PUYOS = "FLASHING_PUYOS", // 消去予定のぷよが点滅している状態
   GAME_OVER = "GAME_OVER"
 }
 
@@ -24,7 +25,11 @@ export type Game = Readonly<{
   state: GameState;
   score: number;
   chainCount: number;
+  flashingTime: number; // 消去予定のぷよが点滅している時間（ミリ秒）
 }>;
+
+// 消去予定のぷよが点滅する時間（ミリ秒）
+const FLASHING_DURATION = 500;
 
 /**
  * Error types for Game operations
@@ -44,7 +49,8 @@ export function createGame(): Game {
     nextPair: createRandomPuyoPair(),
     state: GameState.IDLE,
     score: 0,
-    chainCount: 0
+    chainCount: 0,
+    flashingTime: 0
   });
 }
 
@@ -57,7 +63,8 @@ export function startGame(game: Game): Game {
     board: createBoard(),
     state: GameState.PLAYING,
     score: 0,
-    chainCount: 0
+    chainCount: 0,
+    flashingTime: 0
   }));
   
   return newGame;
@@ -139,13 +146,40 @@ export function moveRightInGame(game: Game): Result<Game, GameError> {
 
 /**
  * Moves the current pair down
- * In this version, manual downward movement is disabled - only hard drops are allowed
+ * If the pair can't move down further, it will be placed on the board
  */
 export function moveDownInGame(game: Game): Result<Game, GameError> {
-  return err({
-    type: "InvalidState",
-    message: "Manual downward movement is disabled - use hard drop instead"
-  });
+  if (game.state !== GameState.PLAYING || !game.currentPair) {
+    return err({
+      type: "InvalidState",
+      message: "Cannot move down in current state"
+    });
+  }
+  
+  const result = moveDown(game.currentPair, game.board);
+  if (result.ok) {
+    // The pair can move down
+    return ok(Object.freeze({
+      ...game,
+      currentPair: result.value
+    }));
+  } else {
+    // The pair can't move down further, place it on the board
+    const placeResult = placeOnBoard(game.currentPair, game.board);
+    if (!placeResult.ok) {
+      return err({
+        type: "GameOver",
+        message: "Cannot place pair on board"
+      });
+    }
+    
+    return ok(Object.freeze({
+      ...game,
+      board: placeResult.value,
+      currentPair: null,
+      state: GameState.DROPPING
+    }));
+  }
 }
 
 /**
@@ -262,23 +296,24 @@ export function updateGame(game: Game): Game {
       });
       
     case GameState.CHECKING_CHAINS:
-      // Check for chains and remove connected Puyos
-      const { board: boardAfterChains, chainsFound, score } = checkAndRemoveChains(game.board, game.chainCount);
+      // Check for chains and mark connected Puyos for deletion
+      const { board: boardWithMarkedPuyos, chainsFound, score } = checkAndMarkChainsForDeletion(game.board, game.chainCount);
       
       if (chainsFound) {
-        // Continue the chain reaction
+        // Puyos found to be deleted, start flashing animation
         return Object.freeze({
           ...game,
-          board: boardAfterChains,
-          state: GameState.DROPPING,
+          board: boardWithMarkedPuyos,
+          state: GameState.FLASHING_PUYOS,
           score: game.score + score,
-          chainCount: game.chainCount + 1
+          chainCount: game.chainCount + 1,
+          flashingTime: 0 // Reset flashing timer
         });
       } else {
         // No more chains, spawn the next pair
         const gameWithNextPair = spawnNextPair(Object.freeze({
           ...game,
-          board: boardAfterChains,
+          board: boardWithMarkedPuyos,
           chainCount: 0
         }));
         
@@ -294,16 +329,38 @@ export function updateGame(game: Game): Game {
         return gameWithNextPair;
       }
       
+    case GameState.FLASHING_PUYOS:
+      // Update flashing time
+      const newFlashingTime = game.flashingTime + 16; // Assuming 60fps, each frame is about 16ms
+      
+      if (newFlashingTime >= FLASHING_DURATION) {
+        // Flashing animation completed, remove the marked Puyos
+        const boardAfterRemoval = removeMarkedPuyos(game.board);
+        
+        return Object.freeze({
+          ...game,
+          board: boardAfterRemoval,
+          state: GameState.DROPPING,
+          flashingTime: 0
+        });
+      } else {
+        // Continue flashing
+        return Object.freeze({
+          ...game,
+          flashingTime: newFlashingTime
+        });
+      }
+      
     case GameState.GAME_OVER:
       return game;
   }
 }
 
 /**
- * Checks for chains and removes connected Puyos
- * Returns a new board with connected Puyos removed and the score earned
+ * Checks for chains and marks connected Puyos for deletion
+ * Returns a new board with connected Puyos marked and the score earned
  */
-function checkAndRemoveChains(board: Board, chainCount: number): { board: Board; chainsFound: boolean; score: number } {
+function checkAndMarkChainsForDeletion(board: Board, chainCount: number): { board: Board; chainsFound: boolean; score: number } {
   // Find all connected groups of 4 or more same-colored Puyos
   const visited: boolean[][] = Array(BOARD_HEIGHT + HIDDEN_ROWS)
     .fill(null)
@@ -325,13 +382,14 @@ function checkAndRemoveChains(board: Board, chainCount: number): { board: Board;
       // Use DFS to find all connected Puyos of the same color
       findConnectedPuyos(currentBoard, x, y, color, visited, group);
       
-      // If the group has 4 or more Puyos, remove them
+      // If the group has 4 or more Puyos, mark them for deletion
       if (group.length >= 4) {
         chainsFound = true;
         
-        // Remove the Puyos
+        // Mark the Puyos for deletion
         for (const pos of group) {
-          const result = setPuyoAt(currentBoard, pos.x, pos.y, createEmptyPuyo());
+          const puyo = getPuyoAt(currentBoard, pos.x, pos.y);
+          const result = setPuyoAt(currentBoard, pos.x, pos.y, markPuyoForDeletion(puyo));
           if (result.ok) {
             currentBoard = result.value;
           }
@@ -345,6 +403,29 @@ function checkAndRemoveChains(board: Board, chainCount: number): { board: Board;
   }
   
   return { board: currentBoard, chainsFound, score: totalScore };
+}
+
+/**
+ * Removes all Puyos marked for deletion
+ * Returns a new board with marked Puyos removed
+ */
+function removeMarkedPuyos(board: Board): Board {
+  let currentBoard = board;
+  
+  for (let y = 0; y < BOARD_HEIGHT + HIDDEN_ROWS; y++) {
+    for (let x = 0; x < BOARD_WIDTH; x++) {
+      const puyo = getPuyoAt(currentBoard, x, y);
+      
+      if (!isEmpty(puyo) && puyo.state === PuyoState.MARKED_FOR_DELETION) {
+        const result = setPuyoAt(currentBoard, x, y, createEmptyPuyo());
+        if (result.ok) {
+          currentBoard = result.value;
+        }
+      }
+    }
+  }
+  
+  return currentBoard;
 }
 
 /**
