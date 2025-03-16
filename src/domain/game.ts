@@ -1,5 +1,5 @@
-import { Board, BOARD_WIDTH, BOARD_HEIGHT, HIDDEN_ROWS, Position, createBoard, isEmptyAt, getPuyoAt, setPuyoAt, applyGravity, isOutOfBounds } from "./board.ts";
-import { Puyo, PuyoColor, PuyoState, createEmptyPuyo, isEmpty, markPuyoForDeletion } from "./puyo.ts";
+import { Board, BOARD_WIDTH, BOARD_HEIGHT, HIDDEN_ROWS, GHOST_ROW, OFFSCREEN_ROW, NORMAL_FIELD_START, Position, createBoard, isEmptyAt, getPuyoAt, setPuyoAt, applyGravity, isOutOfBounds, isGhostRow, isOffscreenRow } from "./board.ts";
+import { Puyo, PuyoColor, PuyoState, createEmptyPuyo, isEmpty, markPuyoForDeletion, isGhostPuyo, isOffscreenPuyo } from "./puyo.ts";
 import { PuyoPair, createRandomPuyoPair, getMainPosition, getSecondPosition, moveLeft, moveRight, moveDown, rotateClockwise, rotateCounterClockwise, placeOnBoard } from "./puyoPair.ts";
 import { Result, ok, err, createPosition } from "./types.ts";
 
@@ -360,9 +360,9 @@ export function updateGame(game: Game): Game {
  * Checks for chains and marks connected Puyos for deletion
  * Returns a new board with connected Puyos marked and the score earned
  */
-function checkAndMarkChainsForDeletion(board: Board, chainCount: number): { board: Board; chainsFound: boolean; score: number } {
+export function checkAndMarkChainsForDeletion(board: Board, chainCount: number): { board: Board; chainsFound: boolean; score: number } {
   // Find all connected groups of 4 or more same-colored Puyos
-  const visited: boolean[][] = Array(BOARD_HEIGHT + HIDDEN_ROWS)
+  const visited: boolean[][] = Array(board.grid.length)
     .fill(null)
     .map(() => Array(BOARD_WIDTH).fill(false));
   
@@ -370,7 +370,8 @@ function checkAndMarkChainsForDeletion(board: Board, chainCount: number): { boar
   let totalScore = 0;
   let currentBoard = board;
   
-  for (let y = 0; y < BOARD_HEIGHT + HIDDEN_ROWS; y++) {
+  // Start from the normal field (skip offscreen and ghost rows)
+  for (let y = NORMAL_FIELD_START; y < board.grid.length; y++) {
     for (let x = 0; x < BOARD_WIDTH; x++) {
       if (visited[y][x] || isEmptyAt(currentBoard, x, y)) {
         continue;
@@ -412,7 +413,9 @@ function checkAndMarkChainsForDeletion(board: Board, chainCount: number): { boar
 function removeMarkedPuyos(board: Board): Board {
   let currentBoard = board;
   
-  for (let y = 0; y < BOARD_HEIGHT + HIDDEN_ROWS; y++) {
+  // Process only the standard field and ghost row (don't touch offscreen row)
+  // Start from NORMAL_FIELD_START to include all normal field rows
+  for (let y = NORMAL_FIELD_START; y < board.grid.length; y++) {
     for (let x = 0; x < BOARD_WIDTH; x++) {
       const puyo = getPuyoAt(currentBoard, x, y);
       
@@ -443,7 +446,9 @@ function findConnectedPuyos(
     isOutOfBounds(board, x, y) ||
     visited[y][x] ||
     isEmptyAt(board, x, y) ||
-    getPuyoAt(board, x, y).color !== color
+    getPuyoAt(board, x, y).color !== color ||
+    isGhostRow(y) ||  // Skip ghost puyos (now at y=1)
+    isOffscreenRow(y) // Skip offscreen puyos (now at y=0)
   ) {
     return;
   }

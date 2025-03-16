@@ -8,6 +8,11 @@ export const BOARD_WIDTH = 6;
 export const BOARD_HEIGHT = 12;
 export const HIDDEN_ROWS = 2; // Rows above the visible board
 
+// New row definitions
+export const OFFSCREEN_ROW = 0; // Offscreen row at the top
+export const GHOST_ROW = 1; // Ghost row below the offscreen row
+export const NORMAL_FIELD_START = 2; // Normal field starts at y=2
+
 /**
  * Re-export Position type
  */
@@ -32,9 +37,12 @@ export type BoardError = {
  * Creates a new empty board
  */
 export function createBoard(): Board {
-  const grid = Array(BOARD_HEIGHT + HIDDEN_ROWS)
+  // Total height includes offscreen row, ghost row, and visible board
+  const totalHeight = BOARD_HEIGHT + HIDDEN_ROWS + 1; // 15 rows total
+  
+  const grid = Array(totalHeight)
     .fill(null)
-    .map(() => 
+    .map(() =>
       Array(BOARD_WIDTH)
         .fill(null)
         .map(() => createEmptyPuyo())
@@ -49,7 +57,21 @@ export function createBoard(): Board {
  * Checks if a position is out of bounds
  */
 export function isOutOfBounds(board: Board, x: number, y: number): boolean {
-  return x < 0 || x >= BOARD_WIDTH || y < 0 || y >= BOARD_HEIGHT + HIDDEN_ROWS;
+  return x < 0 || x >= BOARD_WIDTH || y < 0 || y >= board.grid.length;
+}
+
+/**
+ * Checks if a row is the ghost row (y=1)
+ */
+export function isGhostRow(y: number): boolean {
+  return y === GHOST_ROW;
+}
+
+/**
+ * Checks if a row is the offscreen row (y=0)
+ */
+export function isOffscreenRow(y: number): boolean {
+  return y === OFFSCREEN_ROW;
 }
 
 /**
@@ -100,7 +122,8 @@ export function isEmptyAt(board: Board, x: number, y: number): boolean {
  * Checks if a column is full
  */
 export function isColumnFull(board: Board, x: number): boolean {
-  return !isEmptyAt(board, x, HIDDEN_ROWS - 1);
+  // Check the top-most non-offscreen/non-ghost row
+  return !isEmptyAt(board, x, NORMAL_FIELD_START);
 }
 
 /**
@@ -113,7 +136,36 @@ export function applyGravity(board: Board): { board: Board; moved: boolean } {
   
   // Start from the bottom row and move up
   for (let x = 0; x < BOARD_WIDTH; x++) {
-    for (let y = BOARD_HEIGHT + HIDDEN_ROWS - 2; y >= 0; y--) {
+    // First, handle ghost puyos specially - they should always fall if there's space below
+    if (!isEmptyAt(currentBoard, x, GHOST_ROW)) {
+      // Find the deepest empty cell in this column
+      let targetY = -1;
+      for (let y = board.grid.length - 1; y > GHOST_ROW; y--) {
+        if (isEmptyAt(currentBoard, x, y)) {
+          targetY = y;
+          break;
+        }
+      }
+      
+      // If we found an empty cell, move the ghost puyo there
+      if (targetY !== -1) {
+        const ghostPuyo = getPuyoAt(currentBoard, x, GHOST_ROW);
+        
+        // Move the ghost puyo down
+        const result1 = setPuyoAt(currentBoard, x, targetY, ghostPuyo);
+        if (result1.ok) {
+          const result2 = setPuyoAt(result1.value, x, GHOST_ROW, createEmptyPuyo());
+          if (result2.ok) {
+            currentBoard = result2.value;
+            moved = true;
+          }
+        }
+      }
+    }
+    
+    // Now handle normal field puyos (don't include ghost or offscreen rows)
+    // Start from the second-to-last row and move up
+    for (let y = board.grid.length - 2; y >= NORMAL_FIELD_START; y--) {
       const puyo = getPuyoAt(currentBoard, x, y);
       
       if (!isEmpty(puyo) && isEmptyAt(currentBoard, x, y + 1)) {

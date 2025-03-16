@@ -1,5 +1,5 @@
 import { Puyo, PuyoColor, createPuyo, createRandomPuyo } from "./puyo.ts";
-import { Board, BOARD_WIDTH, BOARD_HEIGHT, HIDDEN_ROWS, Position, isEmptyAt, isOutOfBounds, setPuyoAt } from "./board.ts";
+import { Board, BOARD_WIDTH, BOARD_HEIGHT, HIDDEN_ROWS, NORMAL_FIELD_START, Position, isEmptyAt, isOutOfBounds, setPuyoAt } from "./board.ts";
 import { Result, ok, err, createPosition } from "./types.ts";
 
 /**
@@ -32,12 +32,13 @@ export type PuyoPairError = {
 
 /**
  * Creates a new PuyoPair
+ * Adjusted for new board structure with normal field starting at y=2
  */
 export function createPuyoPair(
   mainPuyo: Puyo,
   secondPuyo: Puyo,
   x = Math.floor(BOARD_WIDTH / 2) - 1,
-  y = 0,
+  y = NORMAL_FIELD_START, // Start at the beginning of the normal field (y=2)
   rotation = RotationState.DOWN
 ): PuyoPair {
   return Object.freeze({
@@ -148,10 +149,13 @@ export function moveDown(pair: PuyoPair, board: Board): Result<PuyoPair, PuyoPai
   const secondPos = getSecondPosition(pair);
   const newSecondY = secondPos.y + 1;
   
-  // Check if the move would go beyond the bottom of the board
+  // Check if the move would go beyond the bottom of the board or hit existing puyos
+  // Note: Board now has total height of BOARD_HEIGHT + HIDDEN_ROWS + 1
+  const maxY = board.grid.length - 1;
+  
   if (
-    newY >= BOARD_HEIGHT + HIDDEN_ROWS || 
-    newSecondY >= BOARD_HEIGHT + HIDDEN_ROWS ||
+    newY > maxY || 
+    newSecondY > maxY ||
     !isEmptyAt(board, mainX, newY) ||
     !isEmptyAt(board, secondPos.x, newSecondY)
   ) {
@@ -191,6 +195,7 @@ function calculateRotationPosition(pair: PuyoPair, newRotation: RotationState): 
 export function rotateClockwise(pair: PuyoPair, board: Board): Result<PuyoPair, PuyoPairError> {
   const newRotation = (pair.rotation + 1) % 4 as RotationState;
   const newSecondPos = calculateRotationPosition(pair, newRotation);
+  console.log(`Current rotation: ${pair.rotation}, New rotation: ${newRotation}`);
   
   // Check if the rotation is valid
   if (
@@ -238,7 +243,8 @@ export function rotateClockwise(pair: PuyoPair, board: Board): Result<PuyoPair, 
 export function rotateCounterClockwise(pair: PuyoPair, board: Board): Result<PuyoPair, PuyoPairError> {
   const newRotation = (pair.rotation + 3) % 4 as RotationState; // +3 is equivalent to -1 in modulo 4
   const newSecondPos = calculateRotationPosition(pair, newRotation);
-  
+  console.log(`Current rotation: ${pair.rotation}, New rotation: ${newRotation}`);
+
   // Check if the rotation is valid
   if (
     isOutOfBounds(board, newSecondPos.x, newSecondPos.y) ||

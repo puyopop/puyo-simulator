@@ -76,6 +76,22 @@ export function canConnectWith(puyo: Puyo, other: Puyo): boolean {
 }
 
 /**
+ * Checks if a Puyo is in the ghost row
+ */
+export function isGhostPuyo(puyo: Puyo, x: number, y: number): boolean {
+  // Ghost row is now at y=1
+  return y === 1;
+}
+
+/**
+ * Checks if a Puyo is in the offscreen row
+ */
+export function isOffscreenPuyo(puyo: Puyo, x: number, y: number): boolean {
+  // Offscreen row is now at y=0
+  return y === 0;
+}
+
+/**
  * Creates a random Puyo with one of the available colors
  */
 export function createRandomPuyo(): Puyo {

@@ -14,7 +14,7 @@ import {
 } from "../../src/domain/game.ts";
 import { PuyoColor, createPuyo } from "../../src/domain/puyo.ts";
 import { createPuyoPair, RotationState } from "../../src/domain/puyoPair.ts";
-import { createBoard, setPuyoAt, BOARD_HEIGHT, HIDDEN_ROWS } from "../../src/domain/board.ts";
+import { createBoard, setPuyoAt, BOARD_HEIGHT, HIDDEN_ROWS, NORMAL_FIELD_START } from "../../src/domain/board.ts";
 
 describe("Game", () => {
   it("createGame creates a game in IDLE state", () => {
@@ -46,7 +46,7 @@ describe("Game", () => {
     // Force a specific current pair
     const mainPuyo = createPuyo(PuyoColor.RED);
     const secondPuyo = createPuyo(PuyoColor.BLUE);
-    const pair = createPuyoPair(mainPuyo, secondPuyo, 3, 0, RotationState.DOWN);
+    const pair = createPuyoPair(mainPuyo, secondPuyo, 3, NORMAL_FIELD_START, RotationState.DOWN);
     
     game = Object.freeze({
       ...game,
@@ -75,10 +75,9 @@ describe("Game", () => {
     const secondPuyo = createPuyo(PuyoColor.GREEN);
     
     // Position the pair at the bottom of the board
-    // The board's height is BOARD_HEIGHT + HIDDEN_ROWS, so the bottom row is at index BOARD_HEIGHT + HIDDEN_ROWS - 1
-    const bottomRowIndex = BOARD_HEIGHT + HIDDEN_ROWS - 1;
+    const bottomRowIndex = game.board.grid.length - 1; // Bottom row of the board
     
-    // Create a pair with the main puyo at the second to last row and second puyo below it (at the bottom)
+    // Create a pair with the main puyo at the second to last row and second puyo below it
     const pair = createPuyoPair(mainPuyo, secondPuyo, 3, bottomRowIndex - 1, RotationState.DOWN);
     
     game = Object.freeze({
@@ -93,7 +92,7 @@ describe("Game", () => {
     
     const finalGame = result.value;
     
-    // The pair should be placed on the board
+    // The pair should be placed on the board and currentPair should be null
     expect(finalGame.currentPair, "current pair after placement").toBe(null);
     expect(finalGame.state, "state after placement").toBe(GameState.DROPPING);
     
@@ -112,12 +111,13 @@ describe("Game", () => {
     let game = createGame();
     game = startGame(game);
     
-    // Set up a board with floating Puyos
+    // Set up a board with floating Puyos in the normal field
     let board = game.board;
     const redPuyo = createPuyo(PuyoColor.RED);
     
-    // Place a Puyo in the air
-    const result = setPuyoAt(board, 2, 5, redPuyo);
+    // Place a Puyo in the air in the normal field
+    const normalFieldY = NORMAL_FIELD_START + 3; // Some position in the normal field
+    const result = setPuyoAt(board, 2, normalFieldY, redPuyo);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     board = result.value;
@@ -133,8 +133,8 @@ describe("Game", () => {
     let updatedGame = updateGame(game);
     
     // The Puyo should have moved down
-    expect(updatedGame.board.grid[5][2].color, "puyo at original position").not.toBe(PuyoColor.RED);
-    expect(updatedGame.board.grid[6][2].color, "puyo at new position").toBe(PuyoColor.RED);
+    expect(updatedGame.board.grid[normalFieldY][2].color, "puyo at original position").not.toBe(PuyoColor.RED);
+    expect(updatedGame.board.grid[normalFieldY + 1][2].color, "puyo at new position").toBe(PuyoColor.RED);
     
     // Keep updating until all Puyos have settled
     while (updatedGame.state === GameState.DROPPING) {
