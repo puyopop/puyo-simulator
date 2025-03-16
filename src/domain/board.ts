@@ -38,7 +38,7 @@ export type BoardError = {
  */
 export function createBoard(): Board {
   // Total height includes offscreen row, ghost row, and visible board
-  const totalHeight = BOARD_HEIGHT + HIDDEN_ROWS + 1; // 15 rows total
+  const totalHeight = BOARD_HEIGHT + HIDDEN_ROWS; 
   
   const grid = Array(totalHeight)
     .fill(null)
