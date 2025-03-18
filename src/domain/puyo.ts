@@ -84,10 +84,10 @@ export function isGhostPuyo(puyo: Puyo, x: number, y: number): boolean {
 }
 
 /**
- * Checks if a Puyo is in the offscreen row
+ * Checks if a Puyo is in the crane row
  */
-export function isOffscreenPuyo(puyo: Puyo, x: number, y: number): boolean {
-  // Offscreen row is now at y=0
+export function isCranePuyo(puyo: Puyo, x: number, y: number): boolean {
+  // Crane row (クレーン行) is at y=0
   return y === 0;
 }
 

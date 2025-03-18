@@ -9,9 +9,9 @@ import {
   BOARD_HEIGHT,
   HIDDEN_ROWS,
   isGhostRow,
-  isOffscreenRow,
+  isCraneRow,
   GHOST_ROW,
-  OFFSCREEN_ROW,
+  CRANE_ROW,
   NORMAL_FIELD_START
 } from "../../src/domain/board.ts";
 import {
@@ -19,13 +19,13 @@ import {
   createPuyo,
   createEmptyPuyo,
   isGhostPuyo,
-  isOffscreenPuyo
+  isCranePuyo
 } from "../../src/domain/puyo.ts";
 import {
   checkAndMarkChainsForDeletion
 } from "../../src/domain/game.ts";
 
-describe("Ghost and Offscreen Puyos", () => {
+describe("Ghost and Crane Puyos", () => {
   it("Ghost row is defined correctly", () => {
     expect(GHOST_ROW, "ghost row index").toBe(1);
     expect(isGhostRow(GHOST_ROW), "is ghost row").toBe(true);
@@ -33,11 +33,11 @@ describe("Ghost and Offscreen Puyos", () => {
     expect(isGhostRow(GHOST_ROW + 1), "row above ghost row").toBe(false);
   });
 
-  it("Offscreen row is defined correctly", () => {
-    expect(OFFSCREEN_ROW, "offscreen row index").toBe(0);
-    expect(isOffscreenRow(OFFSCREEN_ROW), "is offscreen row").toBe(true);
-    expect(isOffscreenRow(OFFSCREEN_ROW + 1), "row below offscreen row").toBe(false);
-    expect(isOffscreenRow(OFFSCREEN_ROW - 1), "row above offscreen row").toBe(false);
+  it("Crane row is defined correctly", () => {
+    expect(CRANE_ROW, "crane row index").toBe(0);
+    expect(isCraneRow(CRANE_ROW), "is crane row").toBe(true);
+    expect(isCraneRow(CRANE_ROW + 1), "row below crane row").toBe(false);
+    expect(isCraneRow(CRANE_ROW - 1), "row above crane row").toBe(false);
   });
 
   it("Puyos in ghost row are identified correctly", () => {
@@ -56,20 +56,20 @@ describe("Ghost and Offscreen Puyos", () => {
     expect(isGhostPuyo(puyo, 2, GHOST_ROW + 1), "puyo in normal row").toBe(false);
   });
 
-  it("Puyos in offscreen row are identified correctly", () => {
+  it("Puyos in crane row are identified correctly", () => {
     const board = createBoard();
     const redPuyo = createPuyo(PuyoColor.RED);
     
-    // Place a puyo in the offscreen row
-    const result = setPuyoAt(board, 2, OFFSCREEN_ROW, redPuyo);
+    // Place a puyo in the crane row
+    const result = setPuyoAt(board, 2, CRANE_ROW, redPuyo);
     expect(result.ok, "set puyo result").toBe(true);
     if (!result.ok) return;
     
     const updatedBoard = result.value;
-    const puyo = getPuyoAt(updatedBoard, 2, OFFSCREEN_ROW);
+    const puyo = getPuyoAt(updatedBoard, 2, CRANE_ROW);
     
-    expect(isOffscreenPuyo(puyo, 2, OFFSCREEN_ROW), "is offscreen puyo").toBe(true);
-    expect(isOffscreenPuyo(puyo, 2, OFFSCREEN_ROW + 1), "puyo in ghost row").toBe(false);
+    expect(isCranePuyo(puyo, 2, CRANE_ROW), "is crane puyo").toBe(true);
+    expect(isCranePuyo(puyo, 2, CRANE_ROW + 1), "puyo in ghost row").toBe(false);
   });
 
   it("Ghost puyos fall when puyos below are cleared", () => {
@@ -131,7 +131,7 @@ describe("Ghost and Offscreen Puyos", () => {
     expect(getPuyoAt(boardAfterGravity, 0, GHOST_ROW).color).toBe(PuyoColor.NONE);
   });
 
-  it("Offscreen puyos don't fall when puyos below are cleared", () => {
+  it("Crane puyos don't fall when puyos below are cleared", () => {
     const board = createBoard();
     let updatedBoard = board;
     
@@ -144,15 +144,15 @@ describe("Ghost and Offscreen Puyos", () => {
       if (result.ok) updatedBoard = result.value;
     }
     
-    // Place a blue puyo in the offscreen row
+    // Place a blue puyo in the crane row
     const bluePuyo = createPuyo(PuyoColor.BLUE);
-    const offscreenResult = setPuyoAt(updatedBoard, 0, OFFSCREEN_ROW, bluePuyo);
-    expect(offscreenResult.ok).toBe(true);
-    if (!offscreenResult.ok) return;
-    updatedBoard = offscreenResult.value;
+    const craneResult = setPuyoAt(updatedBoard, 0, CRANE_ROW, bluePuyo);
+    expect(craneResult.ok).toBe(true);
+    if (!craneResult.ok) return;
+    updatedBoard = craneResult.value;
     
-    // Check that the blue puyo is in the offscreen row
-    expect(getPuyoAt(updatedBoard, 0, OFFSCREEN_ROW).color).toBe(PuyoColor.BLUE);
+    // Check that the blue puyo is in the crane row
+    expect(getPuyoAt(updatedBoard, 0, CRANE_ROW).color).toBe(PuyoColor.BLUE);
     
     // Mark the chain for deletion
     const { board: markedBoard, chainsFound } = checkAndMarkChainsForDeletion(updatedBoard, 0);
@@ -169,8 +169,8 @@ describe("Ghost and Offscreen Puyos", () => {
     // Apply gravity
     const { board: boardAfterGravity } = applyGravity(boardAfterRemoval);
     
-    // The offscreen puyo should NOT have fallen down
-    expect(getPuyoAt(boardAfterGravity, 0, OFFSCREEN_ROW).color).toBe(PuyoColor.BLUE);
+    // The crane puyo should NOT have fallen down
+    expect(getPuyoAt(boardAfterGravity, 0, CRANE_ROW).color).toBe(PuyoColor.BLUE);
   });
 
   it("Ghost puyos are not included in chain detection", () => {
@@ -199,7 +199,7 @@ describe("Ghost and Offscreen Puyos", () => {
     expect(chainsFound, "chains found").toBe(false);
   });
 
-  it("Offscreen puyos are not included in chain detection", () => {
+  it("Crane puyos are not included in chain detection", () => {
     const board = createBoard();
     let updatedBoard = board;
     
@@ -212,16 +212,16 @@ describe("Ghost and Offscreen Puyos", () => {
       if (result.ok) updatedBoard = result.value;
     }
     
-    // Place a red puyo in the offscreen row to make a potential chain of 4
-    const offscreenResult = setPuyoAt(updatedBoard, 0, OFFSCREEN_ROW, redPuyo);
-    expect(offscreenResult.ok).toBe(true);
-    if (!offscreenResult.ok) return;
-    updatedBoard = offscreenResult.value;
+    // Place a red puyo in the crane row to make a potential chain of 4
+    const craneResult = setPuyoAt(updatedBoard, 0, CRANE_ROW, redPuyo);
+    expect(craneResult.ok).toBe(true);
+    if (!craneResult.ok) return;
+    updatedBoard = craneResult.value;
     
     // Check for chains
     const { chainsFound } = checkAndMarkChainsForDeletion(updatedBoard, 0);
     
-    // No chains should be found because the offscreen puyo doesn't count
+    // No chains should be found because the crane puyo doesn't count
     expect(chainsFound, "chains found").toBe(false);
   });
 });

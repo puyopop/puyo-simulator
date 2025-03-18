@@ -1,5 +1,5 @@
-import { Board, BOARD_WIDTH, BOARD_HEIGHT, HIDDEN_ROWS, GHOST_ROW, OFFSCREEN_ROW, NORMAL_FIELD_START, Position, createBoard, isEmptyAt, getPuyoAt, setPuyoAt, applyGravity, isOutOfBounds, isGhostRow, isOffscreenRow } from "./board.ts";
-import { Puyo, PuyoColor, PuyoState, createEmptyPuyo, isEmpty, markPuyoForDeletion, isGhostPuyo, isOffscreenPuyo } from "./puyo.ts";
+import { Board, BOARD_WIDTH, BOARD_HEIGHT, HIDDEN_ROWS, GHOST_ROW, CRANE_ROW, NORMAL_FIELD_START, Position, createBoard, isEmptyAt, getPuyoAt, setPuyoAt, applyGravity, isOutOfBounds, isGhostRow, isCraneRow } from "./board.ts";
+import { Puyo, PuyoColor, PuyoState, createEmptyPuyo, isEmpty, markPuyoForDeletion, isGhostPuyo, isCranePuyo } from "./puyo.ts";
 import { PuyoPair, createRandomPuyoPair, getMainPosition, getSecondPosition, moveLeft, moveRight, moveDown, rotateClockwise, rotateCounterClockwise, placeOnBoard } from "./puyoPair.ts";
 import { Result, ok, err, createPosition } from "./types.ts";
 
@@ -413,7 +413,7 @@ export function checkAndMarkChainsForDeletion(board: Board, chainCount: number):
 function removeMarkedPuyos(board: Board): Board {
   let currentBoard = board;
   
-  // Process only the standard field and ghost row (don't touch offscreen row)
+  // Process only the standard field and ghost row (don't touch crane row)
   // Start from NORMAL_FIELD_START to include all normal field rows
   for (let y = NORMAL_FIELD_START; y < board.grid.length; y++) {
     for (let x = 0; x < BOARD_WIDTH; x++) {
@@ -448,7 +448,7 @@ function findConnectedPuyos(
     isEmptyAt(board, x, y) ||
     getPuyoAt(board, x, y).color !== color ||
     isGhostRow(y) ||  // Skip ghost puyos (now at y=1)
-    isOffscreenRow(y) // Skip offscreen puyos (now at y=0)
+    isCraneRow(y) // Skip crane puyos (now at y=0)
   ) {
     return;
   }

@@ -32,14 +32,13 @@ export type PuyoPairError = {
 
 /**
  * Creates a new PuyoPair
- * Adjusted for new board structure with normal field starting at y=2
  */
 export function createPuyoPair(
   mainPuyo: Puyo,
   secondPuyo: Puyo,
   x = Math.floor(BOARD_WIDTH / 2) - 1,
-  y = NORMAL_FIELD_START, // Start at the beginning of the normal field (y=2)
-  rotation = RotationState.DOWN
+  y = NORMAL_FIELD_START,
+  rotation = RotationState.UP
 ): PuyoPair {
   return Object.freeze({
     mainPuyo,
@@ -149,13 +148,10 @@ export function moveDown(pair: PuyoPair, board: Board): Result<PuyoPair, PuyoPai
   const secondPos = getSecondPosition(pair);
   const newSecondY = secondPos.y + 1;
   
-  // Check if the move would go beyond the bottom of the board or hit existing puyos
-  // Note: Board now has total height of BOARD_HEIGHT + HIDDEN_ROWS + 1
-  const maxY = board.grid.length - 1;
-  
+  // Check if the move would go beyond the bottom of the board
   if (
-    newY > maxY || 
-    newSecondY > maxY ||
+    newY >= BOARD_HEIGHT + HIDDEN_ROWS || 
+    newSecondY >= BOARD_HEIGHT + HIDDEN_ROWS ||
     !isEmptyAt(board, mainX, newY) ||
     !isEmptyAt(board, secondPos.x, newSecondY)
   ) {
@@ -196,7 +192,7 @@ export function rotateClockwise(pair: PuyoPair, board: Board): Result<PuyoPair, 
   const newRotation = (pair.rotation + 1) % 4 as RotationState;
   const newSecondPos = calculateRotationPosition(pair, newRotation);
   console.log(`Current rotation: ${pair.rotation}, New rotation: ${newRotation}`);
-  
+  console.log(`Current position: (${pair.position.x}, ${pair.position.y}), New position: (${newSecondPos.x}, ${newSecondPos.y})`);
   // Check if the rotation is valid
   if (
     isOutOfBounds(board, newSecondPos.x, newSecondPos.y) ||
@@ -244,6 +240,7 @@ export function rotateCounterClockwise(pair: PuyoPair, board: Board): Result<Puy
   const newRotation = (pair.rotation + 3) % 4 as RotationState; // +3 is equivalent to -1 in modulo 4
   const newSecondPos = calculateRotationPosition(pair, newRotation);
   console.log(`Current rotation: ${pair.rotation}, New rotation: ${newRotation}`);
+  console.log(`Current position: (${pair.position.x}, ${pair.position.y}), New position: (${newSecondPos.x}, ${newSecondPos.y})`);
 
   // Check if the rotation is valid
   if (

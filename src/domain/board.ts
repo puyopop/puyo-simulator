@@ -9,8 +9,8 @@ export const BOARD_HEIGHT = 12;
 export const HIDDEN_ROWS = 2; // Rows above the visible board
 
 // New row definitions
-export const OFFSCREEN_ROW = 0; // Offscreen row at the top
-export const GHOST_ROW = 1; // Ghost row below the offscreen row
+export const CRANE_ROW = 0; // Crane row at the top (クレーン行) - Puyos here are held by the crane and don't move
+export const GHOST_ROW = 1; // Ghost row below the crane row
 export const NORMAL_FIELD_START = 2; // Normal field starts at y=2
 
 /**
@@ -37,7 +37,7 @@ export type BoardError = {
  * Creates a new empty board
  */
 export function createBoard(): Board {
-  // Total height includes offscreen row, ghost row, and visible board
+  // Total height includes crane row, ghost row, and visible board
   const totalHeight = BOARD_HEIGHT + HIDDEN_ROWS; 
   
   const grid = Array(totalHeight)
@@ -68,10 +68,10 @@ export function isGhostRow(y: number): boolean {
 }
 
 /**
- * Checks if a row is the offscreen row (y=0)
+ * Checks if a row is the crane row (y=0)
  */
-export function isOffscreenRow(y: number): boolean {
-  return y === OFFSCREEN_ROW;
+export function isCraneRow(y: number): boolean {
+  return y === CRANE_ROW;
 }
 
 /**
@@ -122,7 +122,7 @@ export function isEmptyAt(board: Board, x: number, y: number): boolean {
  * Checks if a column is full
  */
 export function isColumnFull(board: Board, x: number): boolean {
-  // Check the top-most non-offscreen/non-ghost row
+  // Check the top-most non-crane/non-ghost row
   return !isEmptyAt(board, x, NORMAL_FIELD_START);
 }
 
@@ -163,7 +163,7 @@ export function applyGravity(board: Board): { board: Board; moved: boolean } {
       }
     }
     
-    // Now handle normal field puyos (don't include ghost or offscreen rows)
+    // Now handle normal field puyos (don't include ghost or crane rows)
     // Start from the second-to-last row and move up
     for (let y = board.grid.length - 2; y >= NORMAL_FIELD_START; y--) {
       const puyo = getPuyoAt(currentBoard, x, y);

@@ -10,7 +10,7 @@ import {
   BOARD_WIDTH,
   BOARD_HEIGHT,
   HIDDEN_ROWS,
-  OFFSCREEN_ROW,
+  CRANE_ROW,
   GHOST_ROW,
   NORMAL_FIELD_START
 } from "../../src/domain/board.ts";
@@ -20,8 +20,8 @@ describe("Board", () => {
   it("createBoard creates an empty board", () => {
     const board = createBoard();
     
-    // Check dimensions - now includes offscreen row
-    expect(board.grid.length, "board height").toBe(BOARD_HEIGHT + HIDDEN_ROWS + 1);
+    // Check dimensions - now includes crane row
+    expect(board.grid.length, "board height").toBe(BOARD_HEIGHT + HIDDEN_ROWS);
     expect(board.grid[0].length, "board width").toBe(BOARD_WIDTH);
     
     // Check that all cells are empty

@@ -1,6 +1,6 @@
 import { Game, GameState } from "../domain/game.ts";
-import { PuyoColor, PuyoState, isEmpty, isGhostPuyo, isOffscreenPuyo } from "../domain/puyo.ts";
-import { BOARD_WIDTH, BOARD_HEIGHT, HIDDEN_ROWS, GHOST_ROW, OFFSCREEN_ROW, getPuyoAt, isEmptyAt, isGhostRow, isOffscreenRow } from "../domain/board.ts";
+import { PuyoColor, PuyoState, isEmpty, isGhostPuyo, isCranePuyo } from "../domain/puyo.ts";
+import { BOARD_WIDTH, BOARD_HEIGHT, HIDDEN_ROWS, GHOST_ROW, CRANE_ROW, getPuyoAt, isEmptyAt, isGhostRow, isCraneRow } from "../domain/board.ts";
 import { GameRenderer } from "./gameRenderer.ts";
 import { getMainPosition, getSecondPosition } from "../domain/puyoPair.ts";
 
@@ -91,8 +91,8 @@ export class CanvasRenderer implements GameRenderer {
     const boardX = 0;
     const boardY = 0;
     
-    // Draw offscreen row background (0th row, top row)
-    this.ctx.fillStyle = "#335555"; // Teal-ish background for offscreen row
+    // Draw crane row background (0th row, top row)
+    this.ctx.fillStyle = "#335555"; // Teal-ish background for crane row
     this.ctx.fillRect(
       boardX,
       boardY,
@@ -138,22 +138,22 @@ export class CanvasRenderer implements GameRenderer {
       this.ctx.stroke();
     }
     
-    // Draw Puyos on the board (including ghost and offscreen rows)
+    // Draw Puyos on the board (including ghost and crane rows)
     for (let y = 0; y < board.grid.length; y++) {
       for (let x = 0; x < BOARD_WIDTH; x++) {
         const puyo = getPuyoAt(board, x, y);
         
         if (!isEmpty(puyo)) {
-          // Determine if this is a ghost or offscreen puyo
+          // Determine if this is a ghost or crane puyo
           const isGhost = isGhostRow(y);
-          const isOffscreen = isOffscreenRow(y);
+          const isCrane = isCraneRow(y);
           
           this.drawPuyo(
             boardX + x * this.cellSize,
             boardY + y * this.cellSize,
             puyo.color,
             puyo.state,
-            isGhost || isOffscreen // Apply gray filter for ghost and offscreen puyos
+            isGhost || isCrane // Apply gray filter for ghost and crane puyos
           );
         }
       }
@@ -173,27 +173,27 @@ export class CanvasRenderer implements GameRenderer {
     const mainPos = getMainPosition(currentPair);
     const secondPos = getSecondPosition(currentPair);
     
-    // Check if puyos are in ghost or offscreen rows
+    // Check if puyos are in ghost or crane rows
     const isMainGhost = isGhostRow(mainPos.y);
-    const isMainOffscreen = isOffscreenRow(mainPos.y);
+    const isMainCrane = isCraneRow(mainPos.y);
     const isSecondGhost = isGhostRow(secondPos.y);
-    const isSecondOffscreen = isOffscreenRow(secondPos.y);
+    const isSecondCrane = isCraneRow(secondPos.y);
     
     // Always draw the current pair, even if in hidden rows
     this.drawPuyo(
       mainPos.x * this.cellSize,
-      Math.max(0, (mainPos.y - HIDDEN_ROWS)) * this.cellSize,
+      mainPos.y * this.cellSize,
       currentPair.mainPuyo.color,
       currentPair.mainPuyo.state,
-      isMainGhost || isMainOffscreen
+      isMainGhost || isMainCrane
     );
     
     this.drawPuyo(
       secondPos.x * this.cellSize,
-      Math.max(0, (secondPos.y - HIDDEN_ROWS)) * this.cellSize,
+      secondPos.y * this.cellSize,
       currentPair.secondPuyo.color,
       currentPair.secondPuyo.state,
-      isSecondGhost || isSecondOffscreen
+      isSecondGhost || isSecondCrane
     );
   }
 
@@ -296,7 +296,7 @@ export class CanvasRenderer implements GameRenderer {
     this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
     this.ctx.stroke();
     
-    // Apply gray filter for ghost and offscreen puyos
+    // Apply gray filter for ghost and crane puyos
     if (isGrayedOut) {
       this.ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
       this.ctx.beginPath();
