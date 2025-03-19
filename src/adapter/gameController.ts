@@ -17,6 +17,9 @@ import { createPuyoPair, RotationState } from "../domain/puyoPair.ts";
 import { GameRenderer } from "./gameRenderer.ts";
 import { KeyConfig, KeyBindings } from "./keyConfig.ts";
 
+// Maximum number of history states to store for undo
+const MAX_HISTORY_SIZE = 255;
+
 /**
  * Controller for the Puyo Puyo game
  * Handles user input and game updates
@@ -28,6 +31,12 @@ export class GameController {
   private isKeyDown: Record<string, boolean>;
   private renderer: GameRenderer;
   private keyConfig: KeyConfig;
+  
+  // Game history stacks for undo/redo functionality
+  private gameHistory: Game[] = [];
+  private redoHistory: Game[] = [];
+  private canUndo: boolean = false;
+  private canRedo: boolean = false;
   
   // キー入力の制御用パラメータ
   private keyHoldTime: Record<string, number>;
@@ -102,6 +111,12 @@ export class GameController {
       this.lastUpdateTime = performance.now();
       this.dropInterval = 1000;
       
+      // Reset game history when starting a new game
+      this.gameHistory = [];
+      this.redoHistory = [];
+      this.canUndo = false;
+      this.canRedo = false;
+      
       // キー入力状態をリセット
       this.keyHoldTime = {};
       this.lastKeyActionTime = {};
@@ -120,6 +135,102 @@ export class GameController {
   }
 
   /**
+   * Saves the current game state to history for undo functionality
+   * Only saves the state if it's meaningful to undo to this point
+   */
+  private saveGameState(): void {
+    // Only save states when the game is in PLAYING state and a Puyo pair is active
+    if (this.game.state === GameState.PLAYING && this.game.currentPair) {
+      this.gameHistory.push(this.game);
+      
+      // Maintain history size limit
+      if (this.gameHistory.length > MAX_HISTORY_SIZE) {
+        this.gameHistory.shift(); // Remove oldest state
+      }
+      
+      this.canUndo = true;
+      
+      // Clear redo history when a new action is performed
+      this.redoHistory = [];
+      this.canRedo = false;
+    }
+  }
+
+  /**
+   * Performs an undo operation, reverting to the previous game state
+   * Returns true if the undo was successful
+   */
+  undo(): boolean {
+    // Cannot undo if there's no history or during certain game states
+    if (
+      this.gameHistory.length === 0 ||
+      this.game.state === GameState.DROPPING ||
+      this.game.state === GameState.CHECKING_CHAINS ||
+      this.game.state === GameState.FLASHING_PUYOS ||
+      this.game.state === GameState.GAME_OVER
+    ) {
+      return false;
+    }
+    
+    // Save current state to redo history before undoing
+    this.redoHistory.push(this.game);
+    
+    // Get the previous game state
+    const previousState = this.gameHistory.pop()!;
+    this.game = previousState;
+    
+    // Update undo/redo availability
+    this.canUndo = this.gameHistory.length > 0;
+    this.canRedo = true;
+    
+    return true;
+  }
+
+  /**
+   * Performs a redo operation, reverting to the next game state
+   * Returns true if the redo was successful
+   */
+  redo(): boolean {
+    // Cannot redo if there's no redo history or during certain game states
+    if (
+      this.redoHistory.length === 0 ||
+      this.game.state === GameState.DROPPING ||
+      this.game.state === GameState.CHECKING_CHAINS ||
+      this.game.state === GameState.FLASHING_PUYOS ||
+      this.game.state === GameState.GAME_OVER
+    ) {
+      return false;
+    }
+    
+    // Save current state to undo history before redoing
+    this.gameHistory.push(this.game);
+    
+    // Get the next game state
+    const nextState = this.redoHistory.pop()!;
+    this.game = nextState;
+    
+    // Update undo/redo availability
+    this.canUndo = true;
+    this.canRedo = this.redoHistory.length > 0;
+    
+    return true;
+  }
+
+  /**
+   * Checks if undo is currently available
+   */
+  isUndoAvailable(): boolean {
+    return this.canUndo && this.game.state === GameState.PLAYING;
+  }
+  
+  /**
+   * Checks if redo is currently available
+   */
+  isRedoAvailable(): boolean {
+    return this.canRedo && this.game.state === GameState.PLAYING;
+  }
+
+  /**
    * The main game loop
    */
   private gameLoop(timestamp: number): void {
@@ -131,10 +242,11 @@ export class GameController {
     
     // Update game state
     // No auto-drop functionality - only hard drops are allowed
+    const previousState = this.game.state;
     this.game = updateGame(this.game);
     
-    // Render the game
-    this.renderer.render(this.game);
+    // Render the game with undo/redo availability info
+    this.renderer.render(this.game, this.isUndoAvailable(), this.isRedoAvailable());
     
     // Continue the game loop if not game over
     if (this.game.state !== GameState.GAME_OVER) {
@@ -160,20 +272,27 @@ export class GameController {
       const keyBindings = this.keyConfig.getKeyBindings();
       
       if (event.key === keyBindings.rotateClockwise) {
+        // this.saveGameState(); // Save state before modification
         const result = rotateClockwiseInGame(this.game);
         if (result.ok) {
           this.game = result.value;
         }
       } else if (event.key === keyBindings.rotateCounterClockwise) {
+        // this.saveGameState(); // Save state before modification
         const result = rotateCounterClockwiseInGame(this.game);
         if (result.ok) {
           this.game = result.value;
         }
       } else if (event.key === keyBindings.hardDrop) {
+        this.saveGameState(); // Save state before modification
         const result = hardDrop(this.game);
         if (result.ok) {
           this.game = result.value;
         }
+      } else if (event.key === keyBindings.undo) {
+        this.undo(); // Perform undo action
+      } else if (event.key === keyBindings.redo) {
+        this.redo(); // Perform redo action
       }
       
       // Prevent default for game keys
@@ -203,6 +322,7 @@ export class GameController {
     
     // 左移動キーの処理
     this.handleDirectionalInput(currentTime, keyBindings.moveLeft, () => {
+      // this.saveGameState(); // Save state before modification
       const result = moveLeftInGame(this.game);
       if (result.ok) {
         this.game = result.value;
@@ -211,6 +331,7 @@ export class GameController {
     
     // 右移動キーの処理
     this.handleDirectionalInput(currentTime, keyBindings.moveRight, () => {
+      // this.saveGameState(); // Save state before modification
       const result = moveRightInGame(this.game);
       if (result.ok) {
         this.game = result.value;

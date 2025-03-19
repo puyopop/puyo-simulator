@@ -172,6 +172,7 @@ export class KeyConfigUI {
     this.addControlItem("Rotate Clockwise", keyBindings.rotateClockwise);
     this.addControlItem("Rotate Counter-Clockwise", keyBindings.rotateCounterClockwise);
     this.addControlItem("Hard Drop", keyBindings.hardDrop);
+    this.addControlItem("Undo Move", keyBindings.undo);
   }
   
   /**

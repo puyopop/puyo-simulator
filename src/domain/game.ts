@@ -3,6 +3,7 @@ import { Puyo, PuyoColor, PuyoState, createEmptyPuyo, isEmpty, markPuyoForDeleti
 import { PuyoPair, createRandomPuyoPair, getMainPosition, getSecondPosition, moveLeft, moveRight, moveDown, rotateClockwise, rotateCounterClockwise, placeOnBoard, createPuyoPair } from "./puyoPair.ts";
 import { Result, ok, err, createPosition } from "./types.ts";
 import { PuyoSeq, createPuyoSeq } from "./puyoSeq.ts";
+import { calculateScore } from "./score.ts";
 
 /**
  * Represents the state of the game
@@ -452,6 +453,11 @@ export function checkAndMarkChainsForDeletion(board: Board, chainCount: number):
   let totalScore = 0;
   let currentBoard = board;
   
+  // For collecting information needed for score calculation
+  let colorGroups = new Map<PuyoColor, number[]>(); // 色ごとの連結数を保存
+  let totalPuyoCount = 0; // 消去される総ぷよ数
+  let uniqueColors = new Set<PuyoColor>(); // 消去される色の種類
+  
   // Start from the normal field (skip offscreen and ghost rows)
   for (let y = NORMAL_FIELD_START; y < board.grid.length; y++) {
     for (let x = 0; x < BOARD_WIDTH; x++) {
@@ -460,7 +466,8 @@ export function checkAndMarkChainsForDeletion(board: Board, chainCount: number):
       }
       
       const group: Position[] = [];
-      const color = getPuyoAt(currentBoard, x, y).color;
+      const puyo = getPuyoAt(currentBoard, x, y);
+      const color = puyo.color;
       
       // Use DFS to find all connected Puyos of the same color
       findConnectedPuyos(currentBoard, x, y, color, visited, group);
@@ -478,11 +485,22 @@ export function checkAndMarkChainsForDeletion(board: Board, chainCount: number):
           }
         }
         
-        // Update score
-        const points = calculateScore(group.length, chainCount);
-        totalScore += points;
+        // Collect score information
+        if (!colorGroups.has(color)) {
+          colorGroups.set(color, []);
+        }
+        colorGroups.get(color)!.push(group.length);
+        totalPuyoCount += group.length;
+        uniqueColors.add(color);
       }
     }
+  }
+  
+  // Calculate score if any chains were found
+  if (chainsFound) {
+    // Convert colorGroups to array of connection counts
+    const connectionCounts = Array.from(colorGroups.values()).flat();
+    totalScore = calculateScore(chainCount, totalPuyoCount, connectionCounts, uniqueColors.size);
   }
   
   return { board: currentBoard, chainsFound, score: totalScore };
@@ -543,15 +561,4 @@ function findConnectedPuyos(
   findConnectedPuyos(board, x - 1, y, color, visited, group);
   findConnectedPuyos(board, x, y + 1, color, visited, group);
   findConnectedPuyos(board, x, y - 1, color, visited, group);
-}
-
-/**
- * Calculates the score based on the number of Puyos cleared and chain count
- */
-function calculateScore(puyosCleared: number, chainCount: number): number {
-  // Basic scoring formula:
-  // Score = (Puyos cleared) * (10) * (Chain power)
-  // Chain power increases with each chain in the sequence
-  const chainPower = Math.pow(2, chainCount);
-  return puyosCleared * 10 * chainPower;
 }

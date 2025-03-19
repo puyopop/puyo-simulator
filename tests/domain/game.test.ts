@@ -1,5 +1,5 @@
-import { expect } from "@std/expect";
-import { describe, it } from "@std/testing/bdd";
+import { assertEquals } from "https://deno.land/std@0.207.0/assert/assert_equals.ts";
+import { describe, it } from "https://deno.land/std@0.207.0/testing/bdd.ts";
 import {
   createGame,
   startGame,
@@ -11,53 +11,64 @@ import {
   hardDrop,
   updateGame,
   GameState,
-  Game
+  Game,
+  checkAndMarkChainsForDeletion
 } from "../../src/domain/game.ts";
-import { PuyoColor, createPuyo } from "../../src/domain/puyo.ts";
+import { PuyoColor, createPuyo, PuyoState, createEmptyPuyo } from "../../src/domain/puyo.ts";
 import { createPuyoPair, RotationState } from "../../src/domain/puyoPair.ts";
-import { createBoard, setPuyoAt, BOARD_HEIGHT, HIDDEN_ROWS, NORMAL_FIELD_START } from "../../src/domain/board.ts";
+import { 
+  createBoard, 
+  setPuyoAt, 
+  BOARD_HEIGHT, 
+  HIDDEN_ROWS, 
+  NORMAL_FIELD_START, 
+  Board, 
+  applyGravity,
+  getPuyoAt,
+  BOARD_WIDTH
+} from "../../src/domain/board.ts";
 
 describe("Game", () => {
   it("createGame creates a game in IDLE state", () => {
     const gameResult = createGame();
-    expect(gameResult.ok, "createGame result").toBe(true);
+    assertEquals(gameResult.ok, true, "createGame result");
     if (!gameResult.ok) return;
     
     const game = gameResult.value;
-    expect(game.state, "initial state").toBe(GameState.IDLE);
-    expect(game.score, "initial score").toBe(0);
-    expect(game.chainCount, "initial chain count").toBe(0);
-    expect(game.currentPair, "initial current pair").toBe(null);
-    expect(game.nextPair, "initial next pair").not.toBe(null);
+    assertEquals(game.state, GameState.IDLE, "initial state");
+    assertEquals(game.score, 0, "initial score");
+    assertEquals(game.chainCount, 0, "initial chain count");
+    assertEquals(game.currentPair, null, "initial current pair");
+    assertEquals(game.nextPair !== null, true, "initial next pair");
   });
   
   it("startGame initializes a new game in PLAYING state", () => {
     const gameResult = createGame();
-    expect(gameResult.ok, "createGame result").toBe(true);
+    assertEquals(gameResult.ok, true, "createGame result");
     if (!gameResult.ok) return;
     
     const game = gameResult.value;
     const newGameResult = startGame(game);
-    expect(newGameResult.ok, "startGame result").toBe(true);
+    assertEquals(newGameResult.ok, true, "startGame result");
     if (!newGameResult.ok) return;
     
     const newGame = newGameResult.value;
-    expect(newGame.state, "game state after start").toBe(GameState.PLAYING);
-    expect(newGame.score, "score after start").toBe(0);
-    expect(newGame.chainCount, "chain count after start").toBe(0);
-    expect(newGame.currentPair, "current pair after start").not.toBe(null);
-    expect(newGame.nextPair, "next pair after start").not.toBe(null);
+    assertEquals(newGame.state, GameState.PLAYING, "game state after start");
+    assertEquals(newGame.score, 0, "score after start");
+    assertEquals(newGame.chainCount, 0, "chain count after start");
+    assertEquals(newGame.currentPair !== null, true, "current pair after start");
+    assertEquals(newGame.nextPair !== null, true, "next pair after start");
   });
   
   it("moveLeftInGame moves the current pair left", () => {
     // Create a game with a specific pair
     const gameResult = createGame();
-    expect(gameResult.ok, "createGame result").toBe(true);
+    assertEquals(gameResult.ok, true, "createGame result");
     if (!gameResult.ok) return;
     
     let game = gameResult.value;
     const startGameResult = startGame(game);
-    expect(startGameResult.ok, "startGame result").toBe(true);
+    assertEquals(startGameResult.ok, true, "startGame result");
     if (!startGameResult.ok) return;
     
     game = startGameResult.value;
@@ -74,26 +85,26 @@ describe("Game", () => {
     
     // Move left
     const result = moveLeftInGame(game);
-    expect(result.ok, "move left result").toBe(true);
+    assertEquals(result.ok, true, "move left result");
     
     if (result.ok) {
       const movedGame = result.value;
-      expect(movedGame.currentPair?.position.x, "x position after move").toBe(2);
+      assertEquals(movedGame.currentPair?.position.x, 2, "x position after move");
       
       // Original game should be unchanged
-      expect(game.currentPair?.position.x, "original x position").toBe(3);
+      assertEquals(game.currentPair?.position.x, 3, "original x position");
     }
   });
   
   it("moveDownInGame places the pair on the board when it hits the bottom", () => {
     // Create a game with a pair at the bottom of the board
     const gameResult = createGame();
-    expect(gameResult.ok, "createGame result").toBe(true);
+    assertEquals(gameResult.ok, true, "createGame result");
     if (!gameResult.ok) return;
     
     let game = gameResult.value;
     const startGameResult = startGame(game);
-    expect(startGameResult.ok, "startGame result").toBe(true);
+    assertEquals(startGameResult.ok, true, "startGame result");
     if (!startGameResult.ok) return;
     
     game = startGameResult.value;
@@ -114,34 +125,34 @@ describe("Game", () => {
     
     // Move down - this should trigger placement since the second puyo can't move beyond the bottom
     const result = moveDownInGame(game);
-    expect(result.ok).toBe(true);
+    assertEquals(result.ok, true);
     if (!result.ok) return;
     
     const finalGame = result.value;
     
     // The pair should be placed on the board and currentPair should be null
-    expect(finalGame.currentPair, "current pair after placement").toBe(null);
-    expect(finalGame.state, "state after placement").toBe(GameState.DROPPING);
+    assertEquals(finalGame.currentPair, null, "current pair after placement");
+    assertEquals(finalGame.state, GameState.DROPPING, "state after placement");
     
     // The board should have the Puyos at their final positions
     // Main puyo should be at the second to last row
     const mainPuyoOnBoard = finalGame.board.grid[bottomRowIndex - 1][3];
-    expect(mainPuyoOnBoard.color, "main puyo on board").toBe(PuyoColor.RED);
+    assertEquals(mainPuyoOnBoard.color, PuyoColor.RED, "main puyo on board");
     
     // Second puyo should be at the bottom row
     const secondPuyoOnBoard = finalGame.board.grid[bottomRowIndex][3];
-    expect(secondPuyoOnBoard.color, "second puyo on board").toBe(PuyoColor.GREEN);
+    assertEquals(secondPuyoOnBoard.color, PuyoColor.GREEN, "second puyo on board");
   });
   
   it("updateGame applies gravity and checks for chains", () => {
     // Create a game with Puyos that need to fall
     const gameResult = createGame();
-    expect(gameResult.ok, "createGame result").toBe(true);
+    assertEquals(gameResult.ok, true, "createGame result");
     if (!gameResult.ok) return;
     
     let game = gameResult.value;
     const startGameResult = startGame(game);
-    expect(startGameResult.ok, "startGame result").toBe(true);
+    assertEquals(startGameResult.ok, true, "startGame result");
     if (!startGameResult.ok) return;
     
     game = startGameResult.value;
@@ -153,7 +164,7 @@ describe("Game", () => {
     // Place a Puyo in the air in the normal field
     const normalFieldY = NORMAL_FIELD_START + 3; // Some position in the normal field
     const setPuyoResult = setPuyoAt(board, 2, normalFieldY, redPuyo);
-    expect(setPuyoResult.ok).toBe(true);
+    assertEquals(setPuyoResult.ok, true);
     if (!setPuyoResult.ok) return;
     board = setPuyoResult.value;
     
@@ -168,8 +179,8 @@ describe("Game", () => {
     let updatedGame = updateGame(game);
     
     // The Puyo should have moved down
-    expect(updatedGame.board.grid[normalFieldY][2].color, "puyo at original position").not.toBe(PuyoColor.RED);
-    expect(updatedGame.board.grid[normalFieldY + 1][2].color, "puyo at new position").toBe(PuyoColor.RED);
+    assertEquals(updatedGame.board.grid[normalFieldY][2].color !== PuyoColor.RED, true, "puyo at original position");
+    assertEquals(updatedGame.board.grid[normalFieldY + 1][2].color, PuyoColor.RED, "puyo at new position");
     
     // Keep updating until all Puyos have settled
     while (updatedGame.state === GameState.DROPPING) {
@@ -177,13 +188,155 @@ describe("Game", () => {
     }
     
     // After settling, the state should change to CHECKING_CHAINS
-    expect(updatedGame.state, "state after settling").toBe(GameState.CHECKING_CHAINS);
+    assertEquals(updatedGame.state, GameState.CHECKING_CHAINS, "state after settling");
     
     // Update again to check for chains
     updatedGame = updateGame(updatedGame);
     
     // Since there are no chains, it should spawn a new pair and go back to PLAYING
-    expect(updatedGame.state, "state after checking chains").toBe(GameState.PLAYING);
-    expect(updatedGame.currentPair, "current pair after checking chains").not.toBe(null);
+    assertEquals(updatedGame.state, GameState.PLAYING, "state after checking chains");
+    assertEquals(updatedGame.currentPair !== null, true, "current pair after checking chains");
+  });
+  
+  describe("Score calculation", () => {
+    // Helper function to set up a game with a specific board configuration
+    function setupGameWithBoard(boardStr: string): Game {
+      const gameResult = createGame();
+      if (!gameResult.ok) throw new Error("Failed to create game");
+      
+      const startGameResult = startGame(gameResult.value);
+      if (!startGameResult.ok) throw new Error("Failed to start game");
+      
+      let game = startGameResult.value;
+      
+      // Parse the board string and set up the board
+      const lines = boardStr.trim().split('\n');
+      let board = game.board;
+      
+      // Process the board string from bottom to top
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[lines.length - 1 - i].trim();
+        for (let x = 0; x < line.length; x++) {
+          const char = line[x];
+          if (char === '.') continue;
+          
+          const color = char === 'R' ? PuyoColor.RED :
+                       char === 'B' ? PuyoColor.BLUE :
+                       char === 'Y' ? PuyoColor.YELLOW :
+                       char === 'G' ? PuyoColor.GREEN :
+                       char === 'P' ? PuyoColor.PURPLE :
+                       null;
+          
+          if (color !== null) {
+            const puyo = createPuyo(color);
+            const result = setPuyoAt(board, x, NORMAL_FIELD_START + i, puyo);
+            if (result.ok) board = result.value;
+          }
+        }
+      }
+      
+      game = Object.freeze({
+        ...game,
+        board,
+        state: GameState.DROPPING
+      });
+
+      return game;
+    }
+
+    // Helper function to process chain reactions until completion
+    function processChains(game: Game): Game {
+      let currentGame = game;
+      
+      while (currentGame.state !== GameState.PLAYING && currentGame.state !== GameState.GAME_OVER) {
+        currentGame = updateGame(currentGame);
+      }
+      
+      return currentGame;
+    }
+
+    it("calculates a score of 1000 for a 2-chain with red 6-group followed by two blue 4-groups", () => {
+      const game = setupGameWithBoard(`
+        ......
+        ......
+        ......
+        ......
+        ......
+        ......
+        ......
+        ......
+        ......
+        B.B...
+        RRR...
+        BRB...
+        BRB...
+        BRB...`);
+
+      const finalGame = processChains(game);
+      assertEquals(finalGame.score, 1000, "score should be 920 for 2-chain with red 6-group and two blue 4-groups");
+    });
+
+    it("calculates a score of 1240 for a 2-chain with red 6-group followed by blue 4-group and yellow 4-group", () => {
+      const game = setupGameWithBoard(`
+        ......
+        ......
+        ......
+        ......
+        ......
+        ......
+        ......
+        ......
+        ......
+        B.Y...
+        RRR...
+        BRY...
+        BRY...
+        BRY...`);
+
+      const finalGame = processChains(game);
+      assertEquals(finalGame.score, 1160, "score should be 1240 for 2-chain with red 6-group followed by blue 4-group and yellow 4-group");
+    });
+
+    it("calculates a score of 1260 for a 2-chain with red 6-group followed by blue 4-group and blue 6-group", () => {
+      const game = setupGameWithBoard(`
+        ......
+        ......
+        ......
+        ......
+        ......
+        ......
+        ......
+        B.....
+        B.....
+        B.B...
+        RRR...
+        BRB...
+        BRB...
+        BRB...`);
+
+      const finalGame = processChains(game);
+      assertEquals(finalGame.score, 1160, "score should be 1260 for 2-chain with red 6-group followed by blue 4-group and blue 6-group");
+    });
+
+    it("calculates a score of 1560 for a 2-chain with red 6-group followed by two blue 5-groups", () => {
+      const game = setupGameWithBoard(`
+        ......
+        ......
+        ......
+        ......
+        ......
+        ......
+        ......
+        ......
+        B.B...
+        B.B...
+        RRR...
+        BRB...
+        BRB...
+        BRB...`);
+
+      const finalGame = processChains(game);
+      assertEquals(finalGame.score, 1560, "score should be 1240 for 2-chain with red 6-group followed by two blue 5-groups");
+    });
   });
 });

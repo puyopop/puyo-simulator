@@ -45,12 +45,13 @@ export class CanvasRenderer implements GameRenderer {
   /**
    * Renders the game state
    */
-  render(game: Game): void {
+  render(game: Game, undoAvailable?: boolean, redoAvailable?: boolean): void {
     this.clearCanvas();
     this.drawBoard(game);
     this.drawCurrentPair(game);
     this.drawNextPair(game);
     this.drawScore(game);
+    this.drawUndoRedoStatus(undoAvailable || false, redoAvailable || false);
   }
 
   /**
@@ -309,6 +310,25 @@ export class CanvasRenderer implements GameRenderer {
     this.ctx.shadowBlur = 0;
   }
   
+  /**
+   * Draws the undo/redo status
+   */
+  private drawUndoRedoStatus(undoAvailable?: boolean, redoAvailable?: boolean): void {
+    const statusX = BOARD_WIDTH * this.cellSize + 20;
+    const statusY = 150;
+    
+    this.ctx.font = "14px Arial";
+    this.ctx.textAlign = "left";
+    
+    // Draw undo status
+    this.ctx.fillStyle = undoAvailable ? "#2ECC40" : "#999";
+    this.ctx.fillText("Undo (U): " + (undoAvailable ? "Available" : "Not Available"), statusX, statusY);
+    
+    // Draw redo status
+    this.ctx.fillStyle = redoAvailable ? "#2ECC40" : "#999";
+    this.ctx.fillText("Redo (R): " + (redoAvailable ? "Available" : "Not Available"), statusX, statusY + 20);
+  }
+
   /**
    * 色を明るくする関数
    */

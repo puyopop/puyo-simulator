@@ -11,6 +11,8 @@ export interface KeyBindings {
   rotateClockwise: string;
   rotateCounterClockwise: string;
   hardDrop: string;
+  undo: string;
+  redo: string;
 }
 
 // Default key configuration
@@ -21,6 +23,8 @@ export const DEFAULT_KEY_BINDINGS: KeyBindings = {
   rotateClockwise: "k",
   rotateCounterClockwise: "j",
   hardDrop: " ", // Space
+  undo: "u",
+  redo: "r",
 };
 
 // Storage key for saving key bindings in localStorage
@@ -86,7 +90,16 @@ export class KeyConfig {
     try {
       const savedBindings = localStorage.getItem(STORAGE_KEY);
       if (savedBindings) {
-        return JSON.parse(savedBindings);
+        const parsed = JSON.parse(savedBindings);
+        // Add undo key if missing in saved bindings
+        if (!parsed.undo) {
+          parsed.undo = DEFAULT_KEY_BINDINGS.undo;
+        }
+        // Add redo key if missing in saved bindings
+        if (!parsed.redo) {
+          parsed.redo = DEFAULT_KEY_BINDINGS.redo;
+        }
+        return parsed;
       }
     } catch (error) {
       console.error("Error loading key bindings:", error);
