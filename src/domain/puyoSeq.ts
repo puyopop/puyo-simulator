@@ -5,52 +5,61 @@ export type PuyoSeq = Readonly<{
     seq: ReadonlyArray<Puyo>;
 }>;
 
-function random(seed: number): () => number {
-    let state = seed & 0xFFFF; // 16-bit マスク
-    return () => {
-      state ^= state << 7;
-      state ^= state >> 9;
-      state ^= state << 8;
-      return state & 0xFFFF;
-    };
-}
+// 静的なシーケンスデータをキャッシュするための変数
+let cachedSequences: string[] | null = null;
+// シーケンスをロード中かどうかを示すフラグ
+let isLoadingSequence = false;
+// シーケンスロード中の待機PromiseとそのResolve関数
+let loadingPromise: Promise<string[]> | null = null;
 
-function shuffle(array: Puyo[], rnd: () => number): Puyo[] {
-    const shuffled = [...array];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = rnd() % (i + 1);
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+// シーケンスファイルを読み込む非同期関数
+async function loadSequences(): Promise<string[]> {
+    if (cachedSequences !== null) {
+        return cachedSequences;
     }
-    return shuffled;
+
+    // すでにロード中なら既存のPromiseを返す
+    if (isLoadingSequence && loadingPromise) {
+        return loadingPromise;
+    }
+
+    // 新しくロードを開始
+    isLoadingSequence = true;
+    loadingPromise = (async () => {
+        try {
+            const response = await fetch('./src/domain/sequences/esports.txt');
+            if (!response.ok) {
+                throw new Error(`Failed to load sequence file: ${response.statusText}`);
+            }
+
+            const text = await response.text();
+
+            // Split sequence into lines, removing comments and empty lines
+            const lines = text.split('\n')
+                .filter(line => line.trim() !== '' && !line.trim().startsWith('//'));
+
+            cachedSequences = lines;
+            return lines;
+        } catch (error) {
+            console.error('Error loading sequence file:', error);
+            // エラーの場合はデフォルトのシーケンスを返す
+            cachedSequences = ['rgbyprgbyp'];
+            return cachedSequences;
+        } finally {
+            isLoadingSequence = false;
+        }
+    })();
+
+    return loadingPromise;
 }
 
-export function createPuyoSeq_prev(seed: number): PuyoSeq {
-    const colors = [
-        PuyoColor.RED,
-        PuyoColor.GREEN,
-        PuyoColor.YELLOW,
-        PuyoColor.BLUE,
-        PuyoColor.PURPLE
-    ];
-    const rnd = random(seed);
-    const puyos = Array.from({ length: 256 }, () => createPuyo(colors[rnd() % colors.length]));
-    return Object.freeze({
-        seq: shuffle(puyos, rnd)
-    });
-}
+// 非同期バージョンのcreatePuyoSeq
+export async function createPuyoSeqAsync(seed: number): Promise<PuyoSeq> {
+    const lines = await loadSequences();
 
-export function createPuyoSeq(seed: number): PuyoSeq {
-    // Read the esports.txt sequence file
-    const decoder = new TextDecoder('utf-8');
-    const text = Deno.readTextFileSync('./src/domain/sequences/esports.txt');
-    
-    // Split sequence into lines, removing comments and empty lines
-    const lines = text.split('\n')
-        .filter(line => line.trim() !== '' && !line.trim().startsWith('//'));
-    
     // Select a line based on seed
     const selectedLine = lines[seed % lines.length];
-    
+
     // Convert characters to Puyo colors
     const colorMap: Record<string, PuyoColor> = {
         'r': PuyoColor.RED,
@@ -59,7 +68,7 @@ export function createPuyoSeq(seed: number): PuyoSeq {
         'b': PuyoColor.BLUE,
         'p': PuyoColor.PURPLE
     };
-    
+
     // Create puyos from the selected sequence
     const puyos = Array.from(selectedLine)
         .map(char => {
@@ -69,8 +78,42 @@ export function createPuyoSeq(seed: number): PuyoSeq {
             }
             return createPuyo(color);
         });
-    
+
     return Object.freeze({
         seq: puyos
     });
+}
+
+export function createPuyoSeq(seed: number): PuyoSeq {
+    if (!isLoadingSequence) {
+        loadSequences();
+    }
+    // Convert characters to Puyo colors
+    const colorMap: Record<string, PuyoColor> = {
+        'r': PuyoColor.RED,
+        'g': PuyoColor.GREEN,
+        'y': PuyoColor.YELLOW,
+        'b': PuyoColor.BLUE,
+        'p': PuyoColor.PURPLE
+    };
+
+    if (cachedSequences === null) {
+        // デフォルトのシーケンスを返す
+        return {
+            seq: Array.from('rgbyprgbyp').map(char => {
+                return createPuyo(colorMap[char.toLowerCase()]);
+            })};
+    }
+    
+    return {
+        seq: cachedSequences[seed % cachedSequences.length]
+            .split('')
+            .map(char => {
+                const color = colorMap[char.toLowerCase()];
+                if (color === undefined) {
+                    return createPuyo(PuyoColor.RED); // Default to red for unrecognized characters
+                }
+                return createPuyo(color);
+            })
+    };
 }

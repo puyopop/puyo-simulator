@@ -1,1 +1,3 @@
 src/domain/sequences/*
+dist/*
+public/favicon.webp

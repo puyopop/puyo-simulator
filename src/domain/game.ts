@@ -1,7 +1,8 @@
 import { Board, BOARD_WIDTH, BOARD_HEIGHT, HIDDEN_ROWS, GHOST_ROW, CRANE_ROW, NORMAL_FIELD_START, Position, createBoard, isEmptyAt, getPuyoAt, setPuyoAt, applyGravity, isOutOfBounds, isGhostRow, isCraneRow } from "./board.ts";
 import { Puyo, PuyoColor, PuyoState, createEmptyPuyo, isEmpty, markPuyoForDeletion, isGhostPuyo, isCranePuyo } from "./puyo.ts";
-import { PuyoPair, createRandomPuyoPair, getMainPosition, getSecondPosition, moveLeft, moveRight, moveDown, rotateClockwise, rotateCounterClockwise, placeOnBoard } from "./puyoPair.ts";
+import { PuyoPair, createRandomPuyoPair, getMainPosition, getSecondPosition, moveLeft, moveRight, moveDown, rotateClockwise, rotateCounterClockwise, placeOnBoard, createPuyoPair } from "./puyoPair.ts";
 import { Result, ok, err, createPosition } from "./types.ts";
+import { PuyoSeq, createPuyoSeq } from "./puyoSeq.ts";
 
 /**
  * Represents the state of the game
@@ -26,6 +27,8 @@ export type Game = Readonly<{
   score: number;
   chainCount: number;
   flashingTime: number; // 消去予定のぷよが点滅している時間（ミリ秒）
+  puyoSeq: PuyoSeq;    // Sequence of Puyos to use
+  moveCount: number;    // Current move count
 }>;
 
 // 消去予定のぷよが点滅する時間（ミリ秒）
@@ -42,29 +45,46 @@ export type GameError = {
 /**
  * Creates a new game
  */
-export function createGame(): Game {
+export function createGame(seed: number = 0): Game {
+  const puyoSeq = createPuyoSeq(seed);
+  const mainPuyo = puyoSeq.seq[0];
+  const secondPuyo = puyoSeq.seq[1];
+  const nextPair = createPuyoPair(mainPuyo, secondPuyo);
+
   return Object.freeze({
     board: createBoard(),
     currentPair: null,
-    nextPair: createRandomPuyoPair(),
+    nextPair: nextPair,
     state: GameState.IDLE,
     score: 0,
     chainCount: 0,
-    flashingTime: 0
+    flashingTime: 0,
+    puyoSeq: puyoSeq,
+    moveCount: 1  // Start at 1 since we've already used the first pair
   });
 }
 
 /**
  * Starts a new game
  */
-export function startGame(game: Game): Game {
+export function startGame(game: Game, seed?: number): Game {
+  // seedの指定がないなら、ランダムにseedを生成
+  seed = seed !== undefined ? seed : Math.floor(Math.random() * 1000000);
+  const puyoSeq = createPuyoSeq(seed);
+  const mainPuyo = puyoSeq.seq[0];
+  const secondPuyo = puyoSeq.seq[1];
+  const nextPair = createPuyoPair(mainPuyo, secondPuyo);
+
   const newGame = spawnNextPair(Object.freeze({
     ...game,
     board: createBoard(),
     state: GameState.PLAYING,
     score: 0,
     chainCount: 0,
-    flashingTime: 0
+    flashingTime: 0,
+    nextPair: nextPair,
+    puyoSeq: puyoSeq,
+    moveCount: 1  // Start at 1 since we've already used the first pair
   }));
   
   return newGame;
@@ -75,7 +95,19 @@ export function startGame(game: Game): Game {
  */
 function spawnNextPair(game: Game): Game {
   const currentPair = game.nextPair;
-  const nextPair = createRandomPuyoPair();
+  
+  // Get the next Puyos from the sequence
+  const moveCount = game.moveCount;
+  const seqLength = game.puyoSeq.seq.length;
+  
+  // Calculate indices with wrapping (looping back to start)
+  const mainPuyoIndex = (moveCount * 2) % seqLength;
+  const secondPuyoIndex = (moveCount * 2 + 1) % seqLength;
+  
+  const mainPuyo = game.puyoSeq.seq[mainPuyoIndex];
+  const secondPuyo = game.puyoSeq.seq[secondPuyoIndex];
+  
+  const nextPair = createPuyoPair(mainPuyo, secondPuyo);
   
   // Check if game over (no space for new pair)
   const mainPos = getMainPosition(currentPair);
@@ -96,7 +128,8 @@ function spawnNextPair(game: Game): Game {
   return Object.freeze({
     ...game,
     currentPair,
-    nextPair
+    nextPair,
+    moveCount: moveCount + 1  // Increment move count
   });
 }
 

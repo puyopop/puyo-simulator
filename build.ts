@@ -44,6 +44,10 @@ console.log(new TextDecoder().decode(stdout));
 console.log("Copying public files...");
 await copy("./public", distDir, { overwrite: true });
 
+// Copy sequences directory to dist
+console.log("Copying sequence files...");
+await copy("./src/domain/sequences", `${distDir}/src/domain/sequences`, { overwrite: true });
+
 // Create .nojekyll file to disable Jekyll processing on GitHub Pages
 await Deno.writeTextFile(`${distDir}/.nojekyll`, "");
 
