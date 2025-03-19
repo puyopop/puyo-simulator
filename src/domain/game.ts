@@ -1,5 +1,5 @@
 import { Board, BOARD_WIDTH, BOARD_HEIGHT, HIDDEN_ROWS, GHOST_ROW, CRANE_ROW, NORMAL_FIELD_START, Position, createBoard, isEmptyAt, getPuyoAt, setPuyoAt, applyGravity, isOutOfBounds, isGhostRow, isCraneRow } from "./board.ts";
-import { Puyo, PuyoColor, PuyoState, createEmptyPuyo, isEmpty, markPuyoForDeletion, isGhostPuyo, isCranePuyo } from "./puyo.ts";
+import { Puyo, PuyoColor, PuyoState, createEmptyPuyo, isEmpty, markPuyoForDeletion, isGhostPuyo, isCranePuyo, createPuyo } from "./puyo.ts";
 import { PuyoPair, createRandomPuyoPair, getMainPosition, getSecondPosition, moveLeft, moveRight, moveDown, rotateClockwise, rotateCounterClockwise, placeOnBoard, createPuyoPair } from "./puyoPair.ts";
 import { Result, ok, err, createPosition } from "./types.ts";
 import { PuyoSeq, createPuyoSeq } from "./puyoSeq.ts";
@@ -38,20 +38,59 @@ const FLASHING_DURATION = 500;
  * Error types for Game operations
  */
 export type GameError = {
-  type: "InvalidState" | "GameOver";
+  type: "InvalidState" | "GameOver" | "PuyoSeqNotLoaded";
   message: string;
 };
+
+// デフォルトのシーケンスを生成する関数
+function createDefaultPuyoSeq(): PuyoSeq {
+  const defaultColors = [PuyoColor.RED, PuyoColor.GREEN, PuyoColor.BLUE, PuyoColor.YELLOW, PuyoColor.PURPLE];
+  const puyos: Puyo[] = [];
+  
+  // 256個のランダムなぷよを生成
+  for (let i = 0; i < 256; i++) {
+    const randomIndex = Math.floor(Math.random() * defaultColors.length);
+    puyos.push(createPuyo(defaultColors[randomIndex]));
+  }
+  
+  return Object.freeze({
+    seq: puyos
+  });
+}
 
 /**
  * Creates a new game
  */
-export function createGame(seed: number = 0): Game {
-  const puyoSeq = createPuyoSeq(seed);
+export function createGame(seed: number = 0): Result<Game, GameError> {
+  const puyoSeqResult = createPuyoSeq(seed);
+  
+  if (!puyoSeqResult.ok) {
+    // シーケンスがロードされていない場合はデフォルトのシーケンスを使用
+    console.warn("PuyoSeq not loaded yet, using default sequence");
+    const defaultPuyoSeq = createDefaultPuyoSeq();
+    const mainPuyo = defaultPuyoSeq.seq[0];
+    const secondPuyo = defaultPuyoSeq.seq[1];
+    const nextPair = createPuyoPair(mainPuyo, secondPuyo);
+
+    return ok(Object.freeze({
+      board: createBoard(),
+      currentPair: null,
+      nextPair: nextPair,
+      state: GameState.IDLE,
+      score: 0,
+      chainCount: 0,
+      flashingTime: 0,
+      puyoSeq: defaultPuyoSeq,
+      moveCount: 1  // Start at 1 since we've already used the first pair
+    }));
+  }
+  
+  const puyoSeq = puyoSeqResult.value;
   const mainPuyo = puyoSeq.seq[0];
   const secondPuyo = puyoSeq.seq[1];
   const nextPair = createPuyoPair(mainPuyo, secondPuyo);
 
-  return Object.freeze({
+  return ok(Object.freeze({
     board: createBoard(),
     currentPair: null,
     nextPair: nextPair,
@@ -61,21 +100,30 @@ export function createGame(seed: number = 0): Game {
     flashingTime: 0,
     puyoSeq: puyoSeq,
     moveCount: 1  // Start at 1 since we've already used the first pair
-  });
+  }));
 }
 
 /**
  * Starts a new game
  */
-export function startGame(game: Game, seed?: number): Game {
+export function startGame(game: Game, seed?: number): Result<Game, GameError> {
   // seedの指定がないなら、ランダムにseedを生成
   seed = seed !== undefined ? seed : Math.floor(Math.random() * 1000000);
-  const puyoSeq = createPuyoSeq(seed);
+  const puyoSeqResult = createPuyoSeq(seed);
+  
+  if (!puyoSeqResult.ok) {
+    return err({
+      type: "PuyoSeqNotLoaded",
+      message: "Cannot start game: PuyoSeq not loaded yet. Please retry later."
+    });
+  }
+  
+  const puyoSeq = puyoSeqResult.value;
   const mainPuyo = puyoSeq.seq[0];
   const secondPuyo = puyoSeq.seq[1];
   const nextPair = createPuyoPair(mainPuyo, secondPuyo);
 
-  const newGame = spawnNextPair(Object.freeze({
+  const newGameBase = Object.freeze({
     ...game,
     board: createBoard(),
     state: GameState.PLAYING,
@@ -85,9 +133,10 @@ export function startGame(game: Game, seed?: number): Game {
     nextPair: nextPair,
     puyoSeq: puyoSeq,
     moveCount: 1  // Start at 1 since we've already used the first pair
-  }));
+  });
   
-  return newGame;
+  const newGame = spawnNextPair(newGameBase);
+  return ok(newGame);
 }
 
 /**

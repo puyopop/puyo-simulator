@@ -1,6 +1,6 @@
 import { expect } from "@std/expect";
 import { describe, it } from "@std/testing/bdd";
-import { 
+import {
   createGame,
   startGame,
   moveLeftInGame,
@@ -10,7 +10,8 @@ import {
   rotateCounterClockwiseInGame,
   hardDrop,
   updateGame,
-  GameState
+  GameState,
+  Game
 } from "../../src/domain/game.ts";
 import { PuyoColor, createPuyo } from "../../src/domain/puyo.ts";
 import { createPuyoPair, RotationState } from "../../src/domain/puyoPair.ts";
@@ -18,8 +19,11 @@ import { createBoard, setPuyoAt, BOARD_HEIGHT, HIDDEN_ROWS, NORMAL_FIELD_START }
 
 describe("Game", () => {
   it("createGame creates a game in IDLE state", () => {
-    const game = createGame();
+    const gameResult = createGame();
+    expect(gameResult.ok, "createGame result").toBe(true);
+    if (!gameResult.ok) return;
     
+    const game = gameResult.value;
     expect(game.state, "initial state").toBe(GameState.IDLE);
     expect(game.score, "initial score").toBe(0);
     expect(game.chainCount, "initial chain count").toBe(0);
@@ -28,9 +32,16 @@ describe("Game", () => {
   });
   
   it("startGame initializes a new game in PLAYING state", () => {
-    const game = createGame();
-    const newGame = startGame(game);
+    const gameResult = createGame();
+    expect(gameResult.ok, "createGame result").toBe(true);
+    if (!gameResult.ok) return;
     
+    const game = gameResult.value;
+    const newGameResult = startGame(game);
+    expect(newGameResult.ok, "startGame result").toBe(true);
+    if (!newGameResult.ok) return;
+    
+    const newGame = newGameResult.value;
     expect(newGame.state, "game state after start").toBe(GameState.PLAYING);
     expect(newGame.score, "score after start").toBe(0);
     expect(newGame.chainCount, "chain count after start").toBe(0);
@@ -40,8 +51,16 @@ describe("Game", () => {
   
   it("moveLeftInGame moves the current pair left", () => {
     // Create a game with a specific pair
-    let game = createGame();
-    game = startGame(game);
+    const gameResult = createGame();
+    expect(gameResult.ok, "createGame result").toBe(true);
+    if (!gameResult.ok) return;
+    
+    let game = gameResult.value;
+    const startGameResult = startGame(game);
+    expect(startGameResult.ok, "startGame result").toBe(true);
+    if (!startGameResult.ok) return;
+    
+    game = startGameResult.value;
     
     // Force a specific current pair
     const mainPuyo = createPuyo(PuyoColor.RED);
@@ -68,8 +87,16 @@ describe("Game", () => {
   
   it("moveDownInGame places the pair on the board when it hits the bottom", () => {
     // Create a game with a pair at the bottom of the board
-    let game = createGame();
-    game = startGame(game);
+    const gameResult = createGame();
+    expect(gameResult.ok, "createGame result").toBe(true);
+    if (!gameResult.ok) return;
+    
+    let game = gameResult.value;
+    const startGameResult = startGame(game);
+    expect(startGameResult.ok, "startGame result").toBe(true);
+    if (!startGameResult.ok) return;
+    
+    game = startGameResult.value;
     
     const mainPuyo = createPuyo(PuyoColor.RED);
     const secondPuyo = createPuyo(PuyoColor.GREEN);
@@ -108,8 +135,16 @@ describe("Game", () => {
   
   it("updateGame applies gravity and checks for chains", () => {
     // Create a game with Puyos that need to fall
-    let game = createGame();
-    game = startGame(game);
+    const gameResult = createGame();
+    expect(gameResult.ok, "createGame result").toBe(true);
+    if (!gameResult.ok) return;
+    
+    let game = gameResult.value;
+    const startGameResult = startGame(game);
+    expect(startGameResult.ok, "startGame result").toBe(true);
+    if (!startGameResult.ok) return;
+    
+    game = startGameResult.value;
     
     // Set up a board with floating Puyos in the normal field
     let board = game.board;
@@ -117,10 +152,10 @@ describe("Game", () => {
     
     // Place a Puyo in the air in the normal field
     const normalFieldY = NORMAL_FIELD_START + 3; // Some position in the normal field
-    const result = setPuyoAt(board, 2, normalFieldY, redPuyo);
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    board = result.value;
+    const setPuyoResult = setPuyoAt(board, 2, normalFieldY, redPuyo);
+    expect(setPuyoResult.ok).toBe(true);
+    if (!setPuyoResult.ok) return;
+    board = setPuyoResult.value;
     
     game = Object.freeze({
       ...game,

@@ -11,7 +11,9 @@ import {
   hardDrop,
   updateGame
 } from "../domain/game.ts";
-import { BOARD_WIDTH, BOARD_HEIGHT, HIDDEN_ROWS } from "../domain/board.ts";
+import { BOARD_WIDTH, BOARD_HEIGHT, HIDDEN_ROWS, createBoard } from "../domain/board.ts";
+import { PuyoColor, createPuyo } from "../domain/puyo.ts";
+import { createPuyoPair, RotationState } from "../domain/puyoPair.ts";
 import { GameRenderer } from "./gameRenderer.ts";
 import { KeyConfig, KeyBindings } from "./keyConfig.ts";
 
@@ -34,7 +36,15 @@ export class GameController {
   private lastKeyActionTime: Record<string, number>;
   
   constructor(renderer: GameRenderer, keyConfig: KeyConfig) {
-    this.game = createGame();
+    const gameResult = createGame();
+    if (gameResult.ok) {
+      this.game = gameResult.value;
+    } else {
+      console.error("Failed to create game:", gameResult.error);
+      // Create a default game using a fallback method
+      this.game = this.createDefaultGame();
+    }
+    
     this.lastUpdateTime = 0;
     this.dropInterval = 1000; // 1 second
     this.isKeyDown = {};
@@ -52,19 +62,61 @@ export class GameController {
   }
 
   /**
+   * Creates a default game when the normal creation fails
+   * This is a fallback method
+   */
+  private createDefaultGame(): Game {
+    // Create a minimal valid game object
+    return {
+      board: createBoard(),
+      currentPair: null,
+      nextPair: createPuyoPair(
+        createPuyo(PuyoColor.RED),
+        createPuyo(PuyoColor.BLUE)
+      ),
+      state: GameState.IDLE,
+      score: 0,
+      chainCount: 0,
+      flashingTime: 0,
+      puyoSeq: {
+        seq: Array(256).fill(null).map(() =>
+          createPuyo(
+            [PuyoColor.RED, PuyoColor.BLUE, PuyoColor.GREEN, PuyoColor.YELLOW, PuyoColor.PURPLE][
+              Math.floor(Math.random() * 5)
+            ]
+          )
+        )
+      },
+      moveCount: 1
+    };
+  }
+
+  /**
    * Starts a new game
    */
   startGame(): void {
-    this.game = startGame(this.game);
-    this.lastUpdateTime = performance.now();
-    this.dropInterval = 1000;
+    const startGameResult = startGame(this.game);
     
-    // キー入力状態をリセット
-    this.keyHoldTime = {};
-    this.lastKeyActionTime = {};
-    
-    // Start the game loop
-    requestAnimationFrame(this.gameLoop.bind(this));
+    if (startGameResult.ok) {
+      this.game = startGameResult.value;
+      this.lastUpdateTime = performance.now();
+      this.dropInterval = 1000;
+      
+      // キー入力状態をリセット
+      this.keyHoldTime = {};
+      this.lastKeyActionTime = {};
+      
+      // Start the game loop
+      requestAnimationFrame(this.gameLoop.bind(this));
+    } else {
+      console.error("Failed to start game:", startGameResult.error);
+      // If the game failed to start due to PuyoSeq not being loaded,
+      // we can retry after a short delay
+      if (startGameResult.error.type === "PuyoSeqNotLoaded") {
+        console.log("PuyoSeq not loaded yet, retrying in 500ms...");
+        setTimeout(() => this.startGame(), 500);
+      }
+    }
   }
 
   /**
