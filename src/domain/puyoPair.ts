@@ -186,51 +186,117 @@ function calculateRotationPosition(pair: PuyoPair, newRotation: RotationState): 
 }
 
 /**
+ * Attempts to perform a wall kick for rotation
+ * Returns a new pair position if successful, null if not possible
+ *
+ * Wall kick behavior:
+ * 1. When rotating to DOWN state, only try moving upward
+ * 2. When rotating to LEFT/RIGHT state, only try moving in the opposite horizontal direction
+ */
+function tryWallKick(
+  pair: PuyoPair,
+  board: Board,
+  newRotation: RotationState
+): Position | null {
+  const { x, y } = pair.position;
+  
+  // Define possible wall kick positions based on the target rotation state
+  let kickPositions: [number, number][] = [];
+  
+  switch (newRotation) {
+    case RotationState.DOWN:
+      // For DOWN rotation, only try moving up
+      kickPositions = [[x, y - 1]];
+      break;
+    case RotationState.RIGHT:
+      // For RIGHT rotation, only try moving left
+      kickPositions = [[x - 1, y]];
+      break;
+    case RotationState.LEFT:
+      // For LEFT rotation, only try moving right
+      kickPositions = [[x + 1, y]];
+      break;
+    case RotationState.UP:
+      // For UP rotation, try all directions (original behavior)
+      kickPositions = [
+        [x - 1, y], // Try shifting left
+        [x + 1, y], // Try shifting right
+        [x, y - 1], // Try shifting up
+        [x, y + 1]  // Try shifting down
+      ];
+      break;
+  }
+  
+  // Try each kick position
+  for (const [kickX, kickY] of kickPositions) {
+    // Skip invalid positions
+    if (kickX < 0 || kickX >= BOARD_WIDTH || kickY < 0 || kickY >= BOARD_HEIGHT + HIDDEN_ROWS) {
+      continue;
+    }
+    
+    // Create a test pair at the new position
+    const testPair = createPuyoPair(
+      pair.mainPuyo,
+      pair.secondPuyo,
+      kickX,
+      kickY,
+      pair.rotation
+    );
+    
+    // Calculate where the second Puyo would be after rotation
+    const testSecondPos = calculateRotationPosition(testPair, newRotation);
+    
+    // Check if this position is valid
+    if (
+      !isOutOfBounds(board, testSecondPos.x, testSecondPos.y) &&
+      isEmptyAt(board, kickX, kickY) &&
+      isEmptyAt(board, testSecondPos.x, testSecondPos.y)
+    ) {
+      // Found a valid wall kick position
+      return createPosition(kickX, kickY);
+    }
+  }
+  
+  // No valid wall kick position found
+  return null;
+}
+
+/**
  * Rotates the pair clockwise if possible
  */
 export function rotateClockwise(pair: PuyoPair, board: Board): Result<PuyoPair, PuyoPairError> {
   const newRotation = (pair.rotation + 1) % 4 as RotationState;
   const newSecondPos = calculateRotationPosition(pair, newRotation);
-  console.log(`Current rotation: ${pair.rotation}, New rotation: ${newRotation}`);
-  console.log(`Current position: (${pair.position.x}, ${pair.position.y}), New position: (${newSecondPos.x}, ${newSecondPos.y})`);
-  // Check if the rotation is valid
+  
+  // Check if the rotation is valid without wall kick
   if (
-    isOutOfBounds(board, newSecondPos.x, newSecondPos.y) ||
-    !isEmptyAt(board, newSecondPos.x, newSecondPos.y)
+    !isOutOfBounds(board, newSecondPos.x, newSecondPos.y) &&
+    isEmptyAt(board, newSecondPos.x, newSecondPos.y)
   ) {
-    // Try wall kick if hitting a wall
-    if (newSecondPos.x < 0) {
-      // Hitting left wall, try moving right
-      const movedPair = createPuyoPair(
-        pair.mainPuyo,
-        pair.secondPuyo,
-        pair.position.x + 1,
-        pair.position.y,
-        pair.rotation
-      );
-      return rotateClockwise(movedPair, board);
-    } else if (newSecondPos.x >= BOARD_WIDTH) {
-      // Hitting right wall, try moving left
-      const movedPair = createPuyoPair(
-        pair.mainPuyo,
-        pair.secondPuyo,
-        pair.position.x - 1,
-        pair.position.y,
-        pair.rotation
-      );
-      return rotateClockwise(movedPair, board);
-    }
-    
-    return err({
-      type: "InvalidRotation",
-      message: "Cannot rotate clockwise"
-    });
+    // Normal rotation is possible
+    return ok(Object.freeze({
+      ...pair,
+      rotation: newRotation
+    }));
   }
   
-  return ok(Object.freeze({
-    ...pair,
-    rotation: newRotation
-  }));
+  // Try wall kick
+  const wallKickPos = tryWallKick(pair, board, newRotation);
+  
+  if (wallKickPos) {
+    // Wall kick successful
+    return ok(Object.freeze({
+      ...pair,
+      position: wallKickPos,
+      rotation: newRotation
+    }));
+  }
+  
+  // Wall kick failed
+  return err({
+    type: "InvalidRotation",
+    message: "Cannot rotate clockwise"
+  });
 }
 
 /**
@@ -239,47 +305,36 @@ export function rotateClockwise(pair: PuyoPair, board: Board): Result<PuyoPair, 
 export function rotateCounterClockwise(pair: PuyoPair, board: Board): Result<PuyoPair, PuyoPairError> {
   const newRotation = (pair.rotation + 3) % 4 as RotationState; // +3 is equivalent to -1 in modulo 4
   const newSecondPos = calculateRotationPosition(pair, newRotation);
-  console.log(`Current rotation: ${pair.rotation}, New rotation: ${newRotation}`);
-  console.log(`Current position: (${pair.position.x}, ${pair.position.y}), New position: (${newSecondPos.x}, ${newSecondPos.y})`);
 
-  // Check if the rotation is valid
+  // Check if the rotation is valid without wall kick
   if (
-    isOutOfBounds(board, newSecondPos.x, newSecondPos.y) ||
-    !isEmptyAt(board, newSecondPos.x, newSecondPos.y)
+    !isOutOfBounds(board, newSecondPos.x, newSecondPos.y) &&
+    isEmptyAt(board, newSecondPos.x, newSecondPos.y)
   ) {
-    // Try wall kick if hitting a wall
-    if (newSecondPos.x < 0) {
-      // Hitting left wall, try moving right
-      const movedPair = createPuyoPair(
-        pair.mainPuyo,
-        pair.secondPuyo,
-        pair.position.x + 1,
-        pair.position.y,
-        pair.rotation
-      );
-      return rotateCounterClockwise(movedPair, board);
-    } else if (newSecondPos.x >= BOARD_WIDTH) {
-      // Hitting right wall, try moving left
-      const movedPair = createPuyoPair(
-        pair.mainPuyo,
-        pair.secondPuyo,
-        pair.position.x - 1,
-        pair.position.y,
-        pair.rotation
-      );
-      return rotateCounterClockwise(movedPair, board);
-    }
-    
-    return err({
-      type: "InvalidRotation",
-      message: "Cannot rotate counter-clockwise"
-    });
+    // Normal rotation is possible
+    return ok(Object.freeze({
+      ...pair,
+      rotation: newRotation
+    }));
   }
   
-  return ok(Object.freeze({
-    ...pair,
-    rotation: newRotation
-  }));
+  // Try wall kick
+  const wallKickPos = tryWallKick(pair, board, newRotation);
+  
+  if (wallKickPos) {
+    // Wall kick successful
+    return ok(Object.freeze({
+      ...pair,
+      position: wallKickPos,
+      rotation: newRotation
+    }));
+  }
+  
+  // Wall kick failed
+  return err({
+    type: "InvalidRotation",
+    message: "Cannot rotate counter-clockwise"
+  });
 }
 
 /**
