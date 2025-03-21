@@ -136,36 +136,7 @@ export function applyGravity(board: Board): { board: Board; moved: boolean } {
   
   // Start from the bottom row and move up
   for (let x = 0; x < BOARD_WIDTH; x++) {
-    // First, handle ghost puyos specially - they should always fall if there's space below
-    if (!isEmptyAt(currentBoard, x, GHOST_ROW)) {
-      // Find the deepest empty cell in this column
-      let targetY = -1;
-      for (let y = board.grid.length - 1; y > GHOST_ROW; y--) {
-        if (isEmptyAt(currentBoard, x, y)) {
-          targetY = y;
-          break;
-        }
-      }
-      
-      // If we found an empty cell, move the ghost puyo there
-      if (targetY !== -1) {
-        const ghostPuyo = getPuyoAt(currentBoard, x, GHOST_ROW);
-        
-        // Move the ghost puyo down
-        const result1 = setPuyoAt(currentBoard, x, targetY, ghostPuyo);
-        if (result1.ok) {
-          const result2 = setPuyoAt(result1.value, x, GHOST_ROW, createEmptyPuyo());
-          if (result2.ok) {
-            currentBoard = result2.value;
-            moved = true;
-          }
-        }
-      }
-    }
-    
-    // Now handle normal field puyos (don't include ghost or crane rows)
-    // Start from the second-to-last row and move up
-    for (let y = board.grid.length - 2; y >= NORMAL_FIELD_START; y--) {
+    for (let y = board.grid.length - 2; y >= GHOST_ROW; y--) {
       const puyo = getPuyoAt(currentBoard, x, y);
       
       if (!isEmpty(puyo) && isEmptyAt(currentBoard, x, y + 1)) {
