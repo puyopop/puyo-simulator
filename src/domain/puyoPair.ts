@@ -363,7 +363,6 @@ export function placeOnBoard(pair: PuyoPair, board: Board): Result<Board, PuyoPa
   return ok(result2.value);
 }
 
-// filepath: /Users/shuma_kurihara/private/puyo-simulator/src/domain/puyoPair.ts
 function canExecuteQuickTurn(pair: PuyoPair, board: Board): boolean {
   // Quick Turn is only valid for UP or DOWN rotations
   if (pair.rotation !== RotationState.UP && pair.rotation !== RotationState.DOWN) {
