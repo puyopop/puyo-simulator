@@ -11,9 +11,10 @@ import {
   rotateClockwise,
   rotateCounterClockwise,
   placeOnBoard,
-  RotationState
+  RotationState,
+  executeQuickTurn
 } from "../../src/domain/puyoPair.ts";
-import { createBoard, isEmptyAt, getPuyoAt } from "../../src/domain/board.ts";
+import { createBoard, isEmptyAt, getPuyoAt, setPuyoAt } from "../../src/domain/board.ts";
 import { PuyoColor, createPuyo } from "../../src/domain/puyo.ts";
 
 describe("PuyoPair", () => {
@@ -181,5 +182,274 @@ describe("PuyoPair", () => {
         }
       }
     }
+  });
+
+  it("executeQuickTurn works from UP to DOWN when both sides are blocked by Puyos", () => {
+    // Create a board with Puyos on both sides of the pair
+    let board = createBoard();
+    const x = 2;
+    const y = 3;
+    
+    // Place blocking Puyos on both sides of the pair
+    const leftResult = setPuyoAt(board, x - 1, y, createPuyo(PuyoColor.RED)); // Left blocker
+    if (leftResult.ok) {
+      board = leftResult.value;
+    }
+    
+    const rightResult = setPuyoAt(board, x + 1, y, createPuyo(PuyoColor.BLUE)); // Right blocker
+    if (rightResult.ok) {
+      board = rightResult.value;
+    }
+    
+    // Create a pair with UP rotation
+    const pair = createPuyoPair(
+      createPuyo(PuyoColor.GREEN),
+      createPuyo(PuyoColor.YELLOW),
+      x, y, RotationState.UP
+    );
+    
+    // Get original positions for comparison
+    const originalMainPos = getMainPosition(pair);
+    const originalSecondPos = getSecondPosition(pair);
+    
+    // Execute quick turn
+    const result = executeQuickTurn(pair, board);
+    expect(result.ok, "quick turn result").toBe(true);
+    
+    if (result.ok) {
+      const quickTurnedPair = result.value;
+      
+      // Check rotation state changed from UP to DOWN
+      expect(quickTurnedPair.rotation, "rotation after quick turn").toBe(RotationState.DOWN);
+      
+      // Check that the positions are swapped (main puyo is now where second puyo was)
+      expect(quickTurnedPair.position.x, "new main x position").toBe(originalSecondPos.x);
+      expect(quickTurnedPair.position.y, "new main y position").toBe(originalSecondPos.y);
+      
+      // Get the new second position
+      const newSecondPos = getSecondPosition(quickTurnedPair);
+      
+      // Check that the new second position is where the main puyo was
+      expect(newSecondPos.x, "new second x position").toBe(originalMainPos.x);
+      expect(newSecondPos.y, "new second y position").toBe(originalMainPos.y);
+    }
+  });
+  
+  it("executeQuickTurn works from UP to DOWN when one side is blocked by a Puyo and the other by a wall", () => {
+    // Create a board with a Puyo on one side and position the pair against a wall
+    let board = createBoard();
+    const x = 0; // Position against the left wall
+    const y = 3;
+    
+    // Place blocking Puyo on the right side
+    const result = setPuyoAt(board, x + 1, y, createPuyo(PuyoColor.RED));
+    if (result.ok) {
+      board = result.value;
+    }
+    
+    // Create a pair with UP rotation
+    const pair = createPuyoPair(
+      createPuyo(PuyoColor.GREEN),
+      createPuyo(PuyoColor.YELLOW),
+      x, y, RotationState.UP
+    );
+    
+    // Get original positions for comparison
+    const originalMainPos = getMainPosition(pair);
+    const originalSecondPos = getSecondPosition(pair);
+    
+    // Execute quick turn
+    const quickTurnResult = executeQuickTurn(pair, board);
+    expect(quickTurnResult.ok, "quick turn result").toBe(true);
+    
+    if (quickTurnResult.ok) {
+      const quickTurnedPair = quickTurnResult.value;
+      
+      // Check rotation state changed from UP to DOWN
+      expect(quickTurnedPair.rotation, "rotation after quick turn").toBe(RotationState.DOWN);
+      
+      // Check that the positions are swapped (main puyo is now where second puyo was)
+      expect(quickTurnedPair.position.x, "new main x position").toBe(originalSecondPos.x);
+      expect(quickTurnedPair.position.y, "new main y position").toBe(originalSecondPos.y);
+      
+      // Get the new second position
+      const newSecondPos = getSecondPosition(quickTurnedPair);
+      
+      // Check that the new second position is where the main puyo was
+      expect(newSecondPos.x, "new second x position").toBe(originalMainPos.x);
+      expect(newSecondPos.y, "new second y position").toBe(originalMainPos.y);
+    }
+    
+    // Test with the right wall
+    let rightBoard = createBoard();
+    const rightX = 5; // Position against the right wall of a standard board
+    
+    // Place blocking Puyo on the left side
+    const rightResult = setPuyoAt(rightBoard, rightX - 1, y, createPuyo(PuyoColor.BLUE));
+    if (rightResult.ok) {
+      rightBoard = rightResult.value;
+    }
+    
+    // Create a pair with UP rotation at the right edge
+    const rightPair = createPuyoPair(
+      createPuyo(PuyoColor.GREEN),
+      createPuyo(PuyoColor.YELLOW),
+      rightX, y, RotationState.UP
+    );
+    
+    // Get original positions for comparison
+    const rightOriginalMainPos = getMainPosition(rightPair);
+    const rightOriginalSecondPos = getSecondPosition(rightPair);
+    
+    // Execute quick turn
+    const rightQuickTurnResult = executeQuickTurn(rightPair, rightBoard);
+    expect(rightQuickTurnResult.ok, "right wall quick turn result").toBe(true);
+    
+    if (rightQuickTurnResult.ok) {
+      const rightQuickTurnedPair = rightQuickTurnResult.value;
+      
+      // Check rotation state changed from UP to DOWN
+      expect(rightQuickTurnedPair.rotation, "rotation after right quick turn").toBe(RotationState.DOWN);
+      
+      // Position checks
+      expect(rightQuickTurnedPair.position.x, "new main x position at right").toBe(rightOriginalSecondPos.x);
+      expect(rightQuickTurnedPair.position.y, "new main y position at right").toBe(rightOriginalSecondPos.y);
+    }
+  });
+
+  it("executeQuickTurn works from DOWN to UP when both sides are blocked by Puyos", () => {
+    // Create a board with Puyos on both sides of the pair
+    let board = createBoard();
+    const x = 2;
+    const y = 3;
+    
+    // Place blocking Puyos on both sides of the pair
+    const leftResult = setPuyoAt(board, x - 1, y, createPuyo(PuyoColor.RED)); // Left blocker
+    if (leftResult.ok) {
+      board = leftResult.value;
+    }
+    
+    const rightResult = setPuyoAt(board, x + 1, y, createPuyo(PuyoColor.BLUE)); // Right blocker
+    if (rightResult.ok) {
+      board = rightResult.value;
+    }
+    
+    // Create a pair with DOWN rotation
+    const pair = createPuyoPair(
+      createPuyo(PuyoColor.GREEN),
+      createPuyo(PuyoColor.YELLOW),
+      x, y, RotationState.DOWN
+    );
+    
+    // Get original positions for comparison
+    const originalMainPos = getMainPosition(pair);
+    const originalSecondPos = getSecondPosition(pair);
+    
+    // Execute quick turn
+    const result = executeQuickTurn(pair, board);
+    expect(result.ok, "quick turn result").toBe(true);
+    
+    if (result.ok) {
+      const quickTurnedPair = result.value;
+      
+      // Check rotation state changed from DOWN to UP
+      expect(quickTurnedPair.rotation, "rotation after quick turn").toBe(RotationState.UP);
+      
+      // Check that the positions are swapped (main puyo is now where second puyo was)
+      expect(quickTurnedPair.position.x, "new main x position").toBe(originalSecondPos.x);
+      expect(quickTurnedPair.position.y, "new main y position").toBe(originalSecondPos.y);
+      
+      // Get the new second position
+      const newSecondPos = getSecondPosition(quickTurnedPair);
+      
+      // Check that the new second position is where the main puyo was
+      expect(newSecondPos.x, "new second x position").toBe(originalMainPos.x);
+      expect(newSecondPos.y, "new second y position").toBe(originalMainPos.y);
+    }
+  });
+  
+  it("executeQuickTurn works from DOWN to UP when one side is blocked by a Puyo and the other by a wall", () => {
+    // Create a board with a Puyo on one side and position the pair against a wall
+    let board = createBoard();
+    const x = 0; // Position against the left wall
+    const y = 3;
+    
+    // Place blocking Puyo on the right side
+    const result = setPuyoAt(board, x + 1, y, createPuyo(PuyoColor.RED));
+    if (result.ok) {
+      board = result.value;
+    }
+    
+    // Create a pair with DOWN rotation
+    const pair = createPuyoPair(
+      createPuyo(PuyoColor.GREEN),
+      createPuyo(PuyoColor.YELLOW),
+      x, y, RotationState.DOWN
+    );
+    
+    // Get original positions for comparison
+    const originalMainPos = getMainPosition(pair);
+    const originalSecondPos = getSecondPosition(pair);
+    
+    // Execute quick turn
+    const quickTurnResult = executeQuickTurn(pair, board);
+    expect(quickTurnResult.ok, "quick turn result").toBe(true);
+    
+    if (quickTurnResult.ok) {
+      const quickTurnedPair = quickTurnResult.value;
+      
+      // Check rotation state changed from DOWN to UP
+      expect(quickTurnedPair.rotation, "rotation after quick turn").toBe(RotationState.UP);
+      
+      // Check that the positions are swapped (main puyo is now where second puyo was)
+      expect(quickTurnedPair.position.x, "new main x position").toBe(originalSecondPos.x);
+      expect(quickTurnedPair.position.y, "new main y position").toBe(originalSecondPos.y);
+      
+      // Get the new second position
+      const newSecondPos = getSecondPosition(quickTurnedPair);
+      
+      // Check that the new second position is where the main puyo was
+      expect(newSecondPos.x, "new second x position").toBe(originalMainPos.x);
+      expect(newSecondPos.y, "new second y position").toBe(originalMainPos.y);
+    }
+  });
+  
+  it("executeQuickTurn fails when not in UP or DOWN rotation or sides are not blocked", () => {
+    const board = createBoard();
+    const x = 2;
+    const y = 3;
+    
+    // Create a pair with RIGHT rotation (not UP or DOWN)
+    const rightPair = createPuyoPair(
+      createPuyo(PuyoColor.GREEN),
+      createPuyo(PuyoColor.YELLOW),
+      x, y, RotationState.RIGHT
+    );
+    
+    // Quick turn should fail
+    const rightResult = executeQuickTurn(rightPair, board);
+    expect(rightResult.ok, "right rotation quick turn result").toBe(false);
+    
+    // Create a pair with LEFT rotation (not UP or DOWN)
+    const leftPair = createPuyoPair(
+      createPuyo(PuyoColor.GREEN),
+      createPuyo(PuyoColor.YELLOW),
+      x, y, RotationState.LEFT
+    );
+    
+    // Quick turn should fail
+    const leftResult = executeQuickTurn(leftPair, board);
+    expect(leftResult.ok, "left rotation quick turn result").toBe(false);
+    
+    // Create a pair with UP rotation but no blockers
+    const unblockPair = createPuyoPair(
+      createPuyo(PuyoColor.GREEN),
+      createPuyo(PuyoColor.YELLOW),
+      x, y, RotationState.UP
+    );
+    
+    // Quick turn should fail - no blockers
+    const unblockResult = executeQuickTurn(unblockPair, board);
+    expect(unblockResult.ok, "unblocked quick turn result").toBe(false);
   });
 });

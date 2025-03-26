@@ -362,3 +362,54 @@ export function placeOnBoard(pair: PuyoPair, board: Board): Result<Board, PuyoPa
   
   return ok(result2.value);
 }
+
+// filepath: /Users/shuma_kurihara/private/puyo-simulator/src/domain/puyoPair.ts
+function canExecuteQuickTurn(pair: PuyoPair, board: Board): boolean {
+  // Quick Turn is only valid for UP or DOWN rotations
+  if (pair.rotation !== RotationState.UP && pair.rotation !== RotationState.DOWN) {
+    return false;
+  }
+  
+  const leftX = pair.position.x - 1;
+  const rightX = pair.position.x + 1;
+  const mainY = pair.position.y;
+  
+  // Check if the left side is blocked (by a wall or a Puyo)
+  const isLeftBlocked = leftX < 0 || !isEmptyAt(board, leftX, mainY);
+  
+  // Check if the right side is blocked (by a wall or a Puyo)
+  const isRightBlocked = rightX >= BOARD_WIDTH || !isEmptyAt(board, rightX, mainY);
+
+  // Debug output
+  console.log({
+    position: pair.position,
+    rotation: RotationState[pair.rotation],
+    leftX,
+    rightX,
+    mainY,
+    isLeftBlocked,
+    isRightBlocked,
+    canQuickTurn: isLeftBlocked && isRightBlocked
+  });
+
+  // Quick Turn can be executed when both left and right are blocked
+  return isLeftBlocked && isRightBlocked;
+}
+
+export function executeQuickTurn(pair: PuyoPair, board:Board): Result<PuyoPair, PuyoPairError> {
+  if (canExecuteQuickTurn(pair, board)) {
+    const newMainPosition = getSecondPosition(pair);
+    const newRotation = pair.rotation === RotationState.UP
+      ? RotationState.DOWN
+      : RotationState.UP;
+    return ok({
+      ...pair,
+      rotation: newRotation,
+      position: newMainPosition
+    });
+  }
+  return err({
+    type: "InvalidMove",
+    message: "Cannot execute quick turn"
+  });
+}

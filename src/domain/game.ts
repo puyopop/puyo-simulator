@@ -1,6 +1,6 @@
 import { Board, BOARD_WIDTH, BOARD_HEIGHT, HIDDEN_ROWS, GHOST_ROW, CRANE_ROW, NORMAL_FIELD_START, Position, createBoard, isEmptyAt, getPuyoAt, setPuyoAt, applyGravity, isOutOfBounds, isGhostRow, isCraneRow } from "./board.ts";
 import { Puyo, PuyoColor, PuyoState, createEmptyPuyo, isEmpty, markPuyoForDeletion, isGhostPuyo, isCranePuyo, createPuyo } from "./puyo.ts";
-import { PuyoPair, createRandomPuyoPair, getMainPosition, getSecondPosition, moveLeft, moveRight, moveDown, rotateClockwise, rotateCounterClockwise, placeOnBoard, createPuyoPair } from "./puyoPair.ts";
+import { PuyoPair, createRandomPuyoPair, getMainPosition, getSecondPosition, moveLeft, moveRight, moveDown, rotateClockwise, rotateCounterClockwise, placeOnBoard, createPuyoPair, executeQuickTurn } from "./puyoPair.ts";
 import { Result, ok, err, createPosition } from "./types.ts";
 import { PuyoSeq, createPuyoSeq } from "./puyoSeq.ts";
 import { calculateScore } from "./score.ts";
@@ -278,7 +278,10 @@ export function rotateClockwiseInGame(game: Game): Result<Game, GameError> {
   
   const result = rotateClockwise(game.currentPair, game.board);
   if (!result.ok) {
-    return ok(game); // No change if rotation is invalid
+    return err({
+      type: "InvalidState",
+      message: "Cannot rotate in current state"
+    })
   }
   
   return ok(Object.freeze({
@@ -300,7 +303,10 @@ export function rotateCounterClockwiseInGame(game: Game): Result<Game, GameError
   
   const result = rotateCounterClockwise(game.currentPair, game.board);
   if (!result.ok) {
-    return ok(game); // No change if rotation is invalid
+    return err({
+      type: "InvalidState",
+      message: "Cannot rotate in current state"
+    })
   }
   
   return ok(Object.freeze({
@@ -308,6 +314,27 @@ export function rotateCounterClockwiseInGame(game: Game): Result<Game, GameError
     currentPair: result.value
   }));
 }
+
+export function executeQuickTurnInGame(game: Game): Result<Game, GameError> {
+  if (game.state !== GameState.PLAYING || !game.currentPair) {
+    return err({
+      type: "InvalidState",
+      message: "Cannot execute quick turn in current state"
+    });
+  }
+  const result = executeQuickTurn(game.currentPair, game.board);
+  if (!result.ok) {
+    return err({
+      type: "InvalidState",
+      message: "Cannot execute quick turn in current state"
+    })
+  }
+  return ok(Object.freeze({
+    ...game,
+    currentPair: result.value
+  }));
+}
+
 
 /**
  * Performs a hard drop (instantly drops the current pair)
