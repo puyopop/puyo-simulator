@@ -25,9 +25,12 @@ export function calculateScore(
     connectionCounts: number[],
     colorCount: number
 ): number {
+    console.log(`chainCount: ${chainCount}, puyoCount: ${puyoCount}, connectionCounts: ${connectionCounts}, colorCount: ${colorCount}`);
     const chainBonus = getChainBonus(chainCount);
     const connectionBonus = connectionCounts.reduce((sum, count) => sum + getConnectionBonus(count), 0);
     const colorBonus = getColorBonus(colorCount);
     const totalBonus = chainBonus + connectionBonus + colorBonus;
-    return puyoCount * 10 * Math.max(totalBonus, 1);
+    const ret = puyoCount * 10 * Math.max(totalBonus, 1);
+    console.log(`chainBonus: ${chainBonus}, connectionBonus: ${connectionBonus}, colorBonus: ${colorBonus}, totalBonus: ${totalBonus}, score: ${ret}`);
+    return ret;
 }

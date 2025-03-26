@@ -454,7 +454,7 @@ export function checkAndMarkChainsForDeletion(board: Board, chainCount: number):
   let currentBoard = board;
   
   // For collecting information needed for score calculation
-  let colorGroups = new Map<PuyoColor, number[]>(); // 色ごとの連結数を保存
+  let groupConnections: number[] = []; // groupごとの連結数を保存
   let totalPuyoCount = 0; // 消去される総ぷよ数
   let uniqueColors = new Set<PuyoColor>(); // 消去される色の種類
   
@@ -486,10 +486,7 @@ export function checkAndMarkChainsForDeletion(board: Board, chainCount: number):
         }
         
         // Collect score information
-        if (!colorGroups.has(color)) {
-          colorGroups.set(color, []);
-        }
-        colorGroups.get(color)!.push(group.length);
+        groupConnections.push(group.length);
         totalPuyoCount += group.length;
         uniqueColors.add(color);
       }
@@ -498,9 +495,7 @@ export function checkAndMarkChainsForDeletion(board: Board, chainCount: number):
   
   // Calculate score if any chains were found
   if (chainsFound) {
-    // Convert colorGroups to array of connection counts
-    const connectionCounts = Array.from(colorGroups.values()).flat();
-    totalScore = calculateScore(chainCount, totalPuyoCount, connectionCounts, uniqueColors.size);
+    totalScore = calculateScore(chainCount + 1, totalPuyoCount, groupConnections, uniqueColors.size);
   }
   
   return { board: currentBoard, chainsFound, score: totalScore };
