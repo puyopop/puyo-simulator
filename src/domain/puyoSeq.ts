@@ -111,3 +111,7 @@ export function createPuyoSeq(seed: number): Result<PuyoSeq, Error> {
         seq: puyos
     }));
 }
+
+export function getPuyoFrom(seq: PuyoSeq, index: number): Puyo {
+    return seq.seq[index % seq.seq.length];
+}

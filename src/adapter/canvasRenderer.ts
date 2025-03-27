@@ -1,4 +1,4 @@
-import { Game, GameState } from "../domain/game.ts";
+import { Game, GameState, createNextPair, createDoubleNextPair } from "../domain/game.ts";
 import { PuyoColor, PuyoState, isEmpty, isGhostPuyo, isCranePuyo } from "../domain/puyo.ts";
 import { BOARD_WIDTH, BOARD_HEIGHT, HIDDEN_ROWS, GHOST_ROW, CRANE_ROW, getPuyoAt, isEmptyAt, isGhostRow, isCraneRow } from "../domain/board.ts";
 import { GameRenderer } from "./gameRenderer.ts";
@@ -50,6 +50,7 @@ export class CanvasRenderer implements GameRenderer {
     this.drawBoard(game);
     this.drawCurrentPair(game);
     this.drawNextPair(game);
+    this.drawNextNextPair(game);
     this.drawScore(game);
     this.drawUndoRedoStatus(undoAvailable || false, redoAvailable || false);
   }
@@ -202,7 +203,7 @@ export class CanvasRenderer implements GameRenderer {
    * Draws the next Puyo pair
    */
   private drawNextPair(game: Game): void {
-    const nextPair = game.nextPair;
+    const nextPair = createNextPair(game);
     const nextX = BOARD_WIDTH * this.cellSize + 20;
     const nextY = 20;
     
@@ -214,7 +215,7 @@ export class CanvasRenderer implements GameRenderer {
     
     // Draw next piece background
     this.ctx.fillStyle = "#ddd";
-    this.ctx.fillRect(nextX, nextY, this.cellSize * 2, this.cellSize * 2);
+    this.ctx.fillRect(nextX, nextY, this.cellSize, this.cellSize * 2);
     
     // Draw next piece
     this.drawPuyo(
@@ -226,10 +227,46 @@ export class CanvasRenderer implements GameRenderer {
     );
     
     this.drawPuyo(
-      nextX + this.cellSize,
-      nextY + this.cellSize,
+      nextX,
+      nextY,
       nextPair.secondPuyo.color,
       nextPair.secondPuyo.state,
+      false // Next pair preview is never grayed out
+    );
+  }
+
+  /**
+   * Draws the next next Puyo pair
+   */
+  private drawNextNextPair(game: Game): void {
+    const nextNextPair = createDoubleNextPair(game);
+    const nextX = BOARD_WIDTH * this.cellSize + 40 + this.cellSize;
+    const nextY = 20;
+    
+    // Draw next piece label
+    this.ctx.fillStyle = "black";
+    this.ctx.font = "16px Arial";
+    this.ctx.textAlign = "left";
+    this.ctx.fillText("Next Next:", nextX, nextY - 5);
+    
+    // Draw next piece background
+    this.ctx.fillStyle = "#ddd";
+    this.ctx.fillRect(nextX, nextY, this.cellSize, this.cellSize * 2);
+    
+    // Draw next piece
+    this.drawPuyo(
+      nextX,
+      nextY + this.cellSize,
+      nextNextPair.mainPuyo.color,
+      nextNextPair.mainPuyo.state,
+      false // Next pair preview is never grayed out
+    );
+    
+    this.drawPuyo(
+      nextX,
+      nextY,
+      nextNextPair.secondPuyo.color,
+      nextNextPair.secondPuyo.state,
       false // Next pair preview is never grayed out
     );
   }
@@ -239,7 +276,7 @@ export class CanvasRenderer implements GameRenderer {
    */
   private drawScore(game: Game): void {
     const scoreX = BOARD_WIDTH * this.cellSize + 20;
-    const scoreY = 100;
+    const scoreY = 200;
     
     this.ctx.fillStyle = "black";
     this.ctx.font = "16px Arial";

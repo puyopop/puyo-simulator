@@ -2,7 +2,7 @@ import { Board, BOARD_WIDTH, BOARD_HEIGHT, HIDDEN_ROWS, GHOST_ROW, CRANE_ROW, NO
 import { Puyo, PuyoColor, PuyoState, createEmptyPuyo, isEmpty, markPuyoForDeletion, isGhostPuyo, isCranePuyo, createPuyo } from "./puyo.ts";
 import { PuyoPair, createRandomPuyoPair, getMainPosition, getSecondPosition, moveLeft, moveRight, moveDown, rotateClockwise, rotateCounterClockwise, placeOnBoard, createPuyoPair, executeQuickTurn, placeOnBoardAndFallDown } from "./puyoPair.ts";
 import { Result, ok, err, createPosition } from "./types.ts";
-import { PuyoSeq, createPuyoSeq } from "./puyoSeq.ts";
+import { PuyoSeq, createPuyoSeq, getPuyoFrom } from "./puyoSeq.ts";
 import { calculateScore } from "./score.ts";
 
 /**
@@ -23,7 +23,6 @@ export enum GameState {
 export type Game = Readonly<{
   board: Board;
   currentPair: PuyoPair | null;
-  nextPair: PuyoPair;
   state: GameState;
   score: number;
   chainCount: number;
@@ -69,38 +68,30 @@ export function createGame(seed: number = 0): Result<Game, GameError> {
     // シーケンスがロードされていない場合はデフォルトのシーケンスを使用
     console.warn("PuyoSeq not loaded yet, using default sequence");
     const defaultPuyoSeq = createDefaultPuyoSeq();
-    const mainPuyo = defaultPuyoSeq.seq[0];
-    const secondPuyo = defaultPuyoSeq.seq[1];
-    const nextPair = createPuyoPair(mainPuyo, secondPuyo);
 
     return ok(Object.freeze({
       board: createBoard(),
       currentPair: null,
-      nextPair: nextPair,
       state: GameState.IDLE,
       score: 0,
       chainCount: 0,
       flashingTime: 0,
       puyoSeq: defaultPuyoSeq,
-      moveCount: 1  // Start at 1 since we've already used the first pair
+      moveCount: 0  // Start at 0 since we haven't used any pairs yet
     }));
   }
   
   const puyoSeq = puyoSeqResult.value;
-  const mainPuyo = puyoSeq.seq[0];
-  const secondPuyo = puyoSeq.seq[1];
-  const nextPair = createPuyoPair(mainPuyo, secondPuyo);
 
   return ok(Object.freeze({
     board: createBoard(),
     currentPair: null,
-    nextPair: nextPair,
     state: GameState.IDLE,
     score: 0,
     chainCount: 0,
     flashingTime: 0,
     puyoSeq: puyoSeq,
-    moveCount: 1  // Start at 1 since we've already used the first pair
+    moveCount: 0  // Start at 0 since we haven't used any pairs yet
   }));
 }
 
@@ -120,9 +111,6 @@ export function startGame(game: Game, seed?: number): Result<Game, GameError> {
   }
   
   const puyoSeq = puyoSeqResult.value;
-  const mainPuyo = puyoSeq.seq[0];
-  const secondPuyo = puyoSeq.seq[1];
-  const nextPair = createPuyoPair(mainPuyo, secondPuyo);
 
   const newGameBase = Object.freeze({
     ...game,
@@ -131,9 +119,8 @@ export function startGame(game: Game, seed?: number): Result<Game, GameError> {
     score: 0,
     chainCount: 0,
     flashingTime: 0,
-    nextPair: nextPair,
     puyoSeq: puyoSeq,
-    moveCount: 1  // Start at 1 since we've already used the first pair
+    moveCount: 0  // Start at 0 since we haven't used any pairs yet
   });
   
   const newGame = spawnNextPair(newGameBase);
@@ -144,20 +131,8 @@ export function startGame(game: Game, seed?: number): Result<Game, GameError> {
  * Spawns the next Puyo pair
  */
 function spawnNextPair(game: Game): Game {
-  const currentPair = game.nextPair;
-  
-  // Get the next Puyos from the sequence
-  const moveCount = game.moveCount;
-  const seqLength = game.puyoSeq.seq.length;
-  
-  // Calculate indices with wrapping (looping back to start)
-  const mainPuyoIndex = (moveCount * 2) % seqLength;
-  const secondPuyoIndex = (moveCount * 2 + 1) % seqLength;
-  
-  const mainPuyo = game.puyoSeq.seq[mainPuyoIndex];
-  const secondPuyo = game.puyoSeq.seq[secondPuyoIndex];
-  
-  const nextPair = createPuyoPair(mainPuyo, secondPuyo);
+  const currentPair = createNextPair(game);
+  game = Object.freeze({ ...game, moveCount: game.moveCount + 1 });
   
   // Check if game over (no space for new pair)
   const mainPos = getMainPosition(currentPair);
@@ -170,17 +145,34 @@ function spawnNextPair(game: Game): Game {
     return Object.freeze({
       ...game,
       currentPair,
-      nextPair,
       state: GameState.GAME_OVER
     });
   }
   
   return Object.freeze({
     ...game,
-    currentPair,
-    nextPair,
-    moveCount: moveCount + 1  // Increment move count
+    currentPair
   });
+}
+
+/**
+ * Creates the next Puyo pair from the sequence
+ */
+export function createNextPair(game: Game): PuyoPair {
+  return createPuyoPair(
+    getPuyoFrom(game.puyoSeq, game.moveCount * 2),
+    getPuyoFrom(game.puyoSeq, game.moveCount * 2 + 1)
+  );
+}
+
+/**
+ * Creates the double next Puyo pair from the sequence
+ */
+export function createDoubleNextPair(game: Game): PuyoPair {
+  return createPuyoPair(
+    getPuyoFrom(game.puyoSeq, game.moveCount * 2 + 2),
+    getPuyoFrom(game.puyoSeq, game.moveCount * 2 + 3)
+  );
 }
 
 /**

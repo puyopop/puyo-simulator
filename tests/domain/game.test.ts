@@ -12,7 +12,8 @@ import {
   updateGame,
   GameState,
   Game,
-  checkAndMarkChainsForDeletion
+  checkAndMarkChainsForDeletion,
+  createNextPair
 } from "../../src/domain/game.ts";
 import { PuyoColor, createPuyo, PuyoState, createEmptyPuyo } from "../../src/domain/puyo.ts";
 import { createPuyoPair, RotationState } from "../../src/domain/puyoPair.ts";
@@ -39,7 +40,10 @@ describe("Game", () => {
     assertEquals(game.score, 0, "initial score");
     assertEquals(game.chainCount, 0, "initial chain count");
     assertEquals(game.currentPair, null, "initial current pair");
-    assertEquals(game.nextPair !== null, true, "initial next pair");
+    
+    // Check that we can create a next pair from the game's sequence
+    const nextPair = createNextPair(game);
+    assertEquals(nextPair !== null, true, "can create next pair");
   });
   
   it("startGame initializes a new game in PLAYING state", () => {
@@ -57,7 +61,10 @@ describe("Game", () => {
     assertEquals(newGame.score, 0, "score after start");
     assertEquals(newGame.chainCount, 0, "chain count after start");
     assertEquals(newGame.currentPair !== null, true, "current pair after start");
-    assertEquals(newGame.nextPair !== null, true, "next pair after start");
+    
+    // Check that we can create a next pair from the game's sequence
+    const nextPair = createNextPair(newGame);
+    assertEquals(nextPair !== null, true, "can create next pair");
   });
   
   it("moveLeftInGame moves the current pair left", () => {
