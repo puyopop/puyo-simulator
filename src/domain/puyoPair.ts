@@ -363,6 +363,47 @@ export function placeOnBoard(pair: PuyoPair, board: Board): Result<Board, PuyoPa
   return ok(result2.value);
 }
 
+function placeOnBoardAndFallDownPuyo(puyo: Puyo, x: number, y: number, board: Board): Result<Board, PuyoPairError> {
+  let newY = y;
+  while (isEmptyAt(board, x, newY + 1) && !isOutOfBounds(board, x, newY + 1)) {
+    newY++;
+  }
+  const result = setPuyoAt(board, x, newY, puyo);
+  if (!result.ok) {
+    return err({
+      type: "InvalidMove",
+      message: "Cannot place puyo on board"
+    });
+  }
+  return ok(result.value);
+}
+
+/**
+ * Places the Puyo pair on the board and falls down
+ */
+export function placeOnBoardAndFallDown(pair: PuyoPair, board: Board): Result<Board, PuyoPairError> {
+  let formerPos = getMainPosition(pair);
+  let formerPuyo = pair.mainPuyo;
+  let latterPos = getSecondPosition(pair);
+  let latterPuyo = pair.secondPuyo;
+
+  if (formerPos.y < latterPos.y) {
+    // Swap the Puyos if the second Puyo is above the first
+    [formerPos, latterPos] = [latterPos, formerPos];
+    [formerPuyo, latterPuyo] = [latterPuyo, formerPuyo];
+  }
+
+  const result1 = placeOnBoardAndFallDownPuyo(formerPuyo, formerPos.x, formerPos.y, board);
+  if (!result1.ok) {
+    return result1;
+  }
+  const result2 = placeOnBoardAndFallDownPuyo(latterPuyo, latterPos.x, latterPos.y, result1.value);
+  if (!result2.ok) {
+    return result2;
+  }
+  return ok(result2.value);
+}
+
 function canExecuteQuickTurn(pair: PuyoPair, board: Board): boolean {
   // Quick Turn is only valid for UP or DOWN rotations
   if (pair.rotation !== RotationState.UP && pair.rotation !== RotationState.DOWN) {

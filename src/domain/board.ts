@@ -138,7 +138,7 @@ export function applyGravity(board: Board): { board: Board; moved: boolean } {
   for (let x = 0; x < BOARD_WIDTH; x++) {
     for (let y = board.grid.length - 2; y >= GHOST_ROW; y--) {
       const puyo = getPuyoAt(currentBoard, x, y);
-      
+
       if (!isEmpty(puyo) && isEmptyAt(currentBoard, x, y + 1)) {
         // Move the Puyo down
         const result1 = setPuyoAt(currentBoard, x, y + 1, puyo);

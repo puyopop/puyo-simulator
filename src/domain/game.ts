@@ -1,6 +1,6 @@
 import { Board, BOARD_WIDTH, BOARD_HEIGHT, HIDDEN_ROWS, GHOST_ROW, CRANE_ROW, NORMAL_FIELD_START, Position, createBoard, isEmptyAt, getPuyoAt, setPuyoAt, applyGravity, isOutOfBounds, isGhostRow, isCraneRow } from "./board.ts";
 import { Puyo, PuyoColor, PuyoState, createEmptyPuyo, isEmpty, markPuyoForDeletion, isGhostPuyo, isCranePuyo, createPuyo } from "./puyo.ts";
-import { PuyoPair, createRandomPuyoPair, getMainPosition, getSecondPosition, moveLeft, moveRight, moveDown, rotateClockwise, rotateCounterClockwise, placeOnBoard, createPuyoPair, executeQuickTurn } from "./puyoPair.ts";
+import { PuyoPair, createRandomPuyoPair, getMainPosition, getSecondPosition, moveLeft, moveRight, moveDown, rotateClockwise, rotateCounterClockwise, placeOnBoard, createPuyoPair, executeQuickTurn, placeOnBoardAndFallDown } from "./puyoPair.ts";
 import { Result, ok, err, createPosition } from "./types.ts";
 import { PuyoSeq, createPuyoSeq } from "./puyoSeq.ts";
 import { calculateScore } from "./score.ts";
@@ -361,7 +361,7 @@ export function hardDrop(game: Game): Result<Game, GameError> {
   }
   
   // Place the pair on the board
-  const placeResult = placeOnBoard(currentPair, game.board);
+  const placeResult = placeOnBoardAndFallDown(currentPair, game.board);
   if (!placeResult.ok) {
     return err({
       type: "GameOver",
