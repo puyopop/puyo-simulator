@@ -4,7 +4,7 @@ A simple Puyo Puyo game simulator built with Deno and TypeScript, designed to be
 
 ## Demo
 
-You can play the game online at: [GitHub Pages URL after deployment]
+You can play the game online at: [https://puyopop.github.io/puyo-simulator/]
 
 ## Features
 
